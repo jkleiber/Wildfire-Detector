@@ -59,19 +59,4 @@
 
     </LinearLayout>
 
-    <Button
-        android:id="@+id/bSensorConnect"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:padding="10pt"
-        android:text="Connect to Other Device"
-        android:layout_gravity="bottom|center"/>
-
-    <ListView
-        android:id="@+id/bluetoothDeviceList"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" >
-    </ListView>
-
-
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
