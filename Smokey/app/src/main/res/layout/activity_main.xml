@@ -21,7 +21,9 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <include layout="@layout/content_main"/>
+    <include
+        layout="@layout/content_main"
+        android:visibility="gone" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
@@ -29,6 +31,40 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="@dimen/fab_margin"
+        android:visibility="gone"
         app:srcCompat="@android:drawable/ic_dialog_email" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="center">
+
+        <TextView
+            android:id="@+id/tvFireDetected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No Fires Detected"
+            android:layout_gravity="center"
+            android:textSize="20dp"/>
+
+        <Button
+            android:id="@+id/bDetectWildfire"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="10pt"
+            android:text="Report Wildfire"
+            android:layout_gravity="center"
+            android:layout_marginTop="50dp"/>
+
+        <Button
+            android:id="@+id/bSensorConnect"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="10pt"
+            android:text="Connect to Wildfire Sensor"
+            android:layout_gravity="center"/>
+    </LinearLayout>
+
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
