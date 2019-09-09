@@ -66,16 +66,12 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onReceive(context: Context, intent: Intent) {
             val action: String = intent.action
-            d("BT_ACTION", action)
 
             when(action) {
                 BluetoothDevice.ACTION_FOUND -> {
                     // Discovery has found a device. Get the BluetoothDevice
                     // object and its info from the Intent.
                     val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-
-                    d("BLUETOOTH", "RECEIVED")
-                    d("BLUETOOTH", "${device.name}")
 
                     // Add a device to the device list
                     addDeviceToList(device)
@@ -98,7 +94,11 @@ class SettingsActivity : AppCompatActivity() {
             // Request all the bluetooth permissions
             if(getPermissions()) {
                 // Open bluetooth connections
-                //startBluetooth(view.context)
+                startBluetooth(view.context)
+
+                // Clear all the devices for rescanning
+                btDevices.clear()
+                btReadableDevices.clear()
 
                 // Connect to bluetooth devices
                 bluetoothAdapter?.startDiscovery()
@@ -110,6 +110,15 @@ class SettingsActivity : AppCompatActivity() {
                 // Clean up bluetooth connections
                 //stopBluetooth()
             }
+        }
+
+        // Connect to a device if it is clicked
+        bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
+            // Get the device
+            val device = btDevices[id.toInt()]
+
+            // Try connecting to the device
+            
         }
     }
 
