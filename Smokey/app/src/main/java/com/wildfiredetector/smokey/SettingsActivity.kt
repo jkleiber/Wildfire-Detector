@@ -221,11 +221,13 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun addDeviceToList(newDevice: BluetoothDevice)
     {
-        // Add a device to the device list
-        btDevices.add(newDevice)
-
         // Add to the readable list
-        btReadableDevices.add("${newDevice.name}: ${newDevice.address}")
+        if (newDevice.name != null)
+        {
+            // Add a device to the device list
+            btDevices.add(newDevice)
+            btReadableDevices.add("${newDevice.name}: ${newDevice.address}")
+        }
 
         // Update the device list
         updateDeviceList()
