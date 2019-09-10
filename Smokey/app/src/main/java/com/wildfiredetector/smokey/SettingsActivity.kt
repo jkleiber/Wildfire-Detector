@@ -74,9 +74,11 @@ class SettingsActivity : AppCompatActivity() {
                     // Discovery has found a device. Get the BluetoothDevice
                     // object and its info from the Intent.
                     val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    // Found another method that might display more names on the list
+                    val deviceName: String? = intent.getStringExtra(BluetoothDevice.EXTRA_NAME)
 
                     // Add a device to the device list
-                    addDeviceToList(device)
+                    addDeviceToList(device, deviceName)
                 }
             }
         }
@@ -145,7 +147,7 @@ class SettingsActivity : AppCompatActivity() {
      */
     private fun getPermissions(): Boolean
     {
-        var result: Boolean = false
+        var result: Boolean = true
 
         // Access bluetooth
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
@@ -230,15 +232,22 @@ class SettingsActivity : AppCompatActivity() {
         bluetoothAdapter?.closeProfileProxy(BluetoothProfile.HEADSET, bluetoothHeadset)
     }
 
-    private fun addDeviceToList(newDevice: BluetoothDevice)
+    private fun addDeviceToList(newDevice: BluetoothDevice, newName: String?)
     {
         // Add to the readable list
-        if (newDevice.name != null)
+        if(newDevice.name != null)
         {
             // Add a device to the device list
             btDevices.add(newDevice)
             btReadableDevices.add("${newDevice.name}: ${newDevice.address}")
         }
+
+        else if(newName != null)
+        {
+            btDevices.add(newDevice)
+            btReadableDevices.add("$newName: ${newDevice.address}")
+        }
+
 
         // Update the device list
         updateDeviceList()
