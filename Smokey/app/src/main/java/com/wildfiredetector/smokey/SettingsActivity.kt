@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.settings_activity.*
 import android.Manifest
+import java.util.*
+import kotlin.collections.ArrayList
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -118,7 +120,7 @@ class SettingsActivity : AppCompatActivity() {
             val device = btDevices[id.toInt()]
 
             // Try connecting to the device
-            
+            btSocket = device.createRfcommSocketToServiceRecord()
         }
     }
 
