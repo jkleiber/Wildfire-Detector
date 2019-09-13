@@ -4,13 +4,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-<!--
-    <?xml version="1.0" encoding="utf-8"?>
-    <fragment xmlns:android="http://schemas.android.com/apk/res/android"
-        android:name="com.google.android.gms.maps.MapFragment"
-        android:id="@+id/map"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/> -->
+
+    <org.osmdroid.views.MapView android:id="@+id/fireMap"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
@@ -19,6 +16,5 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="@dimen/fab_margin"
         app:srcCompat="@android:drawable/ic_dialog_email" />
-
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
