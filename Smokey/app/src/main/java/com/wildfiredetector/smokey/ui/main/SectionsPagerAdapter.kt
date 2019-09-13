@@ -39,7 +39,6 @@ class SectionsPagerAdapter(private val context: Context, fm: FragmentManager) :
         }
 
         return fragment
-        //return MainPageFragment.newInstance(position + 1)
     }
 
     override fun getPageTitle(position: Int): CharSequence? {
