@@ -100,6 +100,13 @@ class SettingsActivity : AppCompatActivity() {
                 // Open bluetooth connections
                 startBluetooth(view.context)
 
+                // Set device to be discoverable
+                val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+                }
+                startActivity(discoverableIntent)
+
+
                 // Clear all the devices for rescanning
                 btDevices.clear()
                 btReadableDevices.clear()
@@ -122,7 +129,7 @@ class SettingsActivity : AppCompatActivity() {
             val device = btDevices[id.toInt()]
 
             // Try connecting to the device
-            btSocket = device.createRfcommSocketToServiceRecord()
+            // btSocket = device.createRfcommSocketToServiceRecord()
         }
     }
 
