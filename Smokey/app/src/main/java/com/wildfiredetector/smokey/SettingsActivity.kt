@@ -1,10 +1,6 @@
 package com.wildfiredetector.smokey
 
 import android.app.Activity
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothHeadset
-import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -18,6 +14,14 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.settings_activity.*
 import android.Manifest
+import android.bluetooth.*
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.util.Log
+import com.polidea.rxandroidble2.scan.ScanSettings
+import io.reactivex.disposables.Disposable
+import io.reactivex.internal.disposables.DisposableHelper.dispose
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -29,241 +33,142 @@ class SettingsActivity : AppCompatActivity() {
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
 
-    /**
-     * Bluetooth Setup
-     **/
-    // Enabled
-    private var bluetoothEnabled: Boolean = false
-
-    // "Headset"
-    private var bluetoothHeadset: BluetoothHeadset? = null
-
-    // Bluetooth Profile
-    private val profileListener = object : BluetoothProfile.ServiceListener {
-
-        override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-            if (profile == BluetoothProfile.HEADSET) {
-                bluetoothHeadset = proxy as BluetoothHeadset
-            }
-        }
-
-        override fun onServiceDisconnected(profile: Int) {
-            if (profile == BluetoothProfile.HEADSET) {
-                bluetoothHeadset = null
-            }
-        }
-    }
-
-    // Get the default adapter
-    private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
-
-    // List of paired devices
-    val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
-
     var btDevices: ArrayList<BluetoothDevice> = ArrayList()
     var btReadableDevices: ArrayList<String> = ArrayList()
 
-    // Create a BroadcastReceiver for ACTION_FOUND.
-    private val receiver = object : BroadcastReceiver() {
-
-        override fun onReceive(context: Context, intent: Intent) {
-            val action: String = intent.action
-
-            when(action) {
-                BluetoothDevice.ACTION_FOUND -> {
-                    // Discovery has found a device. Get the BluetoothDevice
-                    // object and its info from the Intent.
-                    val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                    // Found another method that might display more names on the list
-                    val deviceName: String? = intent.getStringExtra(BluetoothDevice.EXTRA_NAME)
-
-                    // Add a device to the device list
-                    addDeviceToList(device, deviceName)
-                }
+    /**
+     * Bluetooth Setup and scanning
+     **/
+    private val bleScanner = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult?) {
+            super.onScanResult(callbackType, result)
+            // makes sure that the name isn't null and that the device is also unique
+            if (result?.device?.name != null && !(btDevices.contains(result.device))) {
+                // Add a device to the device list
+                btDevices.add(result.device)
+                btReadableDevices.add("${result.device?.name}: ${result.device?.address}")
             }
+        }
+
+        // Not sure what this does tbh
+        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+            super.onBatchScanResults(results)
+            Log.d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
+        }
+
+        // Error Checking
+        override fun onScanFailed(errorCode: Int) {
+            super.onScanFailed(errorCode)
+            Log.d("DeviceListActivity", "onScanFailed: $errorCode")
         }
     }
 
+    private val bluetoothLeScanner: BluetoothLeScanner
+        get() {
+            val bluetoothManager =
+                applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val bluetoothAdapter = bluetoothManager.adapter
+            return bluetoothAdapter.bluetoothLeScanner
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.d("DeviceListActivity", "onCreate()")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        // Register for broadcasts when a device is discovered.
-        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-        registerReceiver(receiver, filter)
-
-        // Sensor connection button
-        bSensorConnect.setOnClickListener{ view ->
-            // Request all the bluetooth permissions
-            if(getPermissions()) {
-                // Open bluetooth connections
-                startBluetooth(view.context)
-
-                // Set device to be discoverable
-                val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-                }
-                startActivity(discoverableIntent)
-
-
-                // Clear all the devices for rescanning
+        bSensorConnect.setOnClickListener {
+            if (getPermissions())
+            {
                 btDevices.clear()
                 btReadableDevices.clear()
 
-                // Connect to bluetooth devices
-                bluetoothAdapter?.startDiscovery()
-
                 // Notify discovery has started
-                Snackbar.make(view, "Device Discovery Started...", Snackbar.LENGTH_LONG)
+                Snackbar.make(it, "Device Discovery Started...", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
 
-                // Clean up bluetooth connections
-                //stopBluetooth()
+                updateDeviceList()
             }
         }
 
-        // Connect to a device if it is clicked
-        bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
-            // Get the device
-            val device = btDevices[id.toInt()]
-
-            // Try connecting to the device
-            // btSocket = device.createRfcommSocketToServiceRecord()
-        }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
+    override fun onStart() {
+        Log.d("DeviceListActivity", "onStart()")
+        super.onStart()
 
-        when(requestCode)
-        {
-            REQUEST_ENABLE_BT -> bluetoothEnabled = resultCode == Activity.RESULT_OK
-        }
+        bluetoothLeScanner.startScan(bleScanner)
+
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-
-        // Don't forget to unregister the ACTION_FOUND receiver.
-        unregisterReceiver(receiver)
+    override fun onStop() {
+        bluetoothLeScanner.stopScan(bleScanner)
+        super.onStop()
     }
 
     /**
      * Permissions
      */
-    private fun getPermissions(): Boolean
-    {
+    private fun getPermissions(): Boolean {
         var result: Boolean = true
 
         // Access bluetooth
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
             requestPermissions(arrayOf(Manifest.permission.BLUETOOTH), REQUEST_ENABLE_BT)
-        }
-        else
-        {
+        } else {
             result = true
         }
 
         // Access coarse location
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
-            requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_ADMIN), REQUEST_ENABLE_BT_ADMIN)
-        }
-        else
-        {
-            result = result &&  true
+            requestPermissions(
+                arrayOf(Manifest.permission.BLUETOOTH_ADMIN),
+                REQUEST_ENABLE_BT_ADMIN
+            )
+        } else {
+            result = result && true
         }
 
         // Access coarse location
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), REQUEST_COARSE_LOC)
-        }
-        else
-        {
-            result = result &&  true
+            requestPermissions(
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+                REQUEST_COARSE_LOC
+            )
+        } else {
+            result = result && true
         }
 
         // Access fine location
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_FINE_LOC)
-        }
-        else
-        {
+        } else {
             result = result && true
         }
 
         return result
     }
 
-    /**
-     * Bluetooth functions
-     */
-    private fun startBluetooth(context: Context)
-    {
-        if (bluetoothAdapter?.isEnabled == false) {
-            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
-        }
-
-        // Establish connection to the proxy.
-        bluetoothAdapter?.getProfileProxy(context, profileListener, BluetoothProfile.HEADSET)
-    }
-
-    private fun listBluetoothDevices()
-    {
-        var devices: ArrayList<String> = ArrayList()
-
-        pairedDevices?.forEach { device ->
-            val deviceName = device.name
-            val deviceHardwareAddress = device.address // MAC address
-
-            devices.add("$deviceName: $deviceHardwareAddress")
-        }
-
-        // Populate bluetooth device list
-        var adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, devices)
-        bluetoothDeviceList.adapter = adapter
-    }
-
-    private fun stopBluetooth()
-    {
-        // Close proxy connection after use.
-        bluetoothAdapter?.closeProfileProxy(BluetoothProfile.HEADSET, bluetoothHeadset)
-    }
-
-    private fun addDeviceToList(newDevice: BluetoothDevice, newName: String?)
-    {
-        // Add to the readable list
-        if(newDevice.name != null)
-        {
-            // Add a device to the device list
-            btDevices.add(newDevice)
-            btReadableDevices.add("${newDevice.name}: ${newDevice.address}")
-        }
-
-        else if(newName != null)
-        {
-            btDevices.add(newDevice)
-            btReadableDevices.add("$newName: ${newDevice.address}")
-        }
-
-
-        // Update the device list
-        updateDeviceList()
-    }
 
     private fun updateDeviceList()
     {
         // Populate bluetooth device list
-        var adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, btReadableDevices)
+        val adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, btReadableDevices)
         bluetoothDeviceList.adapter = adapter
     }
 }
+
+
+
+
