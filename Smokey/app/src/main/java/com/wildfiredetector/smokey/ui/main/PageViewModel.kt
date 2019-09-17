@@ -17,4 +17,6 @@ class PageViewModel : ViewModel() {
         Log.w("FIRE", "Fire detected")
         updateFlag.value = update
     }
+
+
 }

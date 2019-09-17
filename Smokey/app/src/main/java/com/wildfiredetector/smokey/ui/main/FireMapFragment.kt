@@ -1,6 +1,8 @@
 package com.wildfiredetector.smokey.ui.main
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
 import android.preference.PreferenceManager
@@ -9,6 +11,7 @@ import android.util.Log.w
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
@@ -33,6 +36,9 @@ class FireMapFragment : Fragment() {
     private lateinit var pageViewModel: PageViewModel
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    private val REQUEST_COARSE_LOC = 5
+    private val REQUEST_FINE_LOC = 6
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -55,6 +61,9 @@ class FireMapFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?)
     {
+        // Set a map controller
+        val mapController = fireMap.controller
+
         // Get the user's location
         var lat = 35.2226
         var lon = -97.4395
@@ -64,20 +73,37 @@ class FireMapFragment : Fragment() {
 
         if(ctx != null)
         {
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(ctx)
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location : Location? ->
-                    // Got last known location. In some rare situations this can be null.
-                    if(location != null)
-                    {
-                        lat = location.latitude
-                        lon = location.longitude
-                    }
-                }
-        }
+            // Get the GPS permissions
+            val approved = getPermissions(ctx)
+            w("GPS_CTXT", "Context is good")
 
-        // Make a geopoint of the current location
-        val curPoint = GeoPoint(lat, lon)
+            // If the GPS permission is approved, get the lat and lon
+            if(approved) {
+                w("APPROVED", "Permissions good")
+
+                fusedLocationClient = LocationServices.getFusedLocationProviderClient(ctx)
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location: Location? ->
+                        // Got last known location. In some rare situations this can be null.
+                        if (location != null) {
+                            w("APPROVED", "location good")
+                            lat = location.latitude
+                            lon = location.longitude
+
+                            mapController.setCenter(GeoPoint(lat, lon))
+                            mapController.setZoom(13.5)
+                        }
+                    }
+            }
+            else
+            {
+                w("REJECTED", "Permissions bad")
+            }
+        }
+        else
+        {
+            w("GPS_NOT_GOOD", "Context bad")
+        }
 
         // Setup the map tiling
         fireMap.setTileSource(TileSourceFactory.MAPNIK)
@@ -85,15 +111,12 @@ class FireMapFragment : Fragment() {
         // Zoom controls
         fireMap.setMultiTouchControls(true)
 
-        // Start at user's location
-        val mapController = fireMap.controller
-        mapController.setZoom(12.5)
-        mapController.setCenter(curPoint)
+        // Start at a far zoom by default
+        mapController.setZoom(5.0)
 
         // TODO: Remove this debugging code
         // add a fake fire
         FireManager.addFire(context, lat, lon)
-
 
         fab.setOnClickListener { view ->
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
@@ -101,10 +124,8 @@ class FireMapFragment : Fragment() {
         }
 
 
-        pageViewModel.updateFlag.observe(this, Observer<Boolean> { _ ->
-            // If the map should be updated, update it
-            w("FIRE2", "Fire detected")
-            // display the fire
+        pageViewModel.updateFlag.observe(this, Observer<Boolean> {
+            // Display the fire
             FireManager.updateFireMap(fireMap)
         })
     }
@@ -119,6 +140,38 @@ class FireMapFragment : Fragment() {
         super.onPause()
 
         fireMap.onPause()
+    }
+
+    private fun getPermissions(ctx: Context?): Boolean
+    {
+        var result = false
+
+        if(ctx != null)
+        {
+            // Access coarse location
+            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+                // Permission is not granted
+                requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), REQUEST_COARSE_LOC)
+            }
+            else
+            {
+                result = true
+            }
+
+            // Access fine location
+            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+                // Permission is not granted
+                requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_FINE_LOC)
+            }
+            else
+            {
+                result = result && true
+            }
+        }
+
+        return result
     }
 
 }
