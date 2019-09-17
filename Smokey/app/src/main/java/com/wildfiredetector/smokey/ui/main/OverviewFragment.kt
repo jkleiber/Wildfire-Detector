@@ -1,6 +1,8 @@
 package com.wildfiredetector.smokey.ui.main
 
+import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +11,8 @@ import androidx.lifecycle.ViewModelProviders
 import com.google.android.material.snackbar.Snackbar
 import com.wildfiredetector.smokey.R
 import kotlinx.android.synthetic.main.fragment_overview.*
+import java.lang.ClassCastException
+import java.lang.Exception
 
 class OverviewFragment : Fragment() {
 
@@ -16,9 +20,9 @@ class OverviewFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pageViewModel = ViewModelProviders.of(this).get(PageViewModel::class.java).apply {
-            setIndex(arguments?.getInt(SectionsPagerAdapter.ARG_SECTION_NUMBER) ?: 1)
-        }
+        pageViewModel = activity?.run {
+            ViewModelProviders.of(this).get(PageViewModel::class.java)
+        } ?: throw Exception("Invalid Overview Activity")
     }
 
     override fun onCreateView(
@@ -35,6 +39,8 @@ class OverviewFragment : Fragment() {
             bDetectWildfire.setOnClickListener { view ->
                 Snackbar.make(view, "Fire Reported!", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
+
+                pageViewModel.updateMap(true)
             }
-        }
+    }
 }

@@ -1,5 +1,7 @@
 package com.wildfiredetector.smokey.ui.main
 
+import android.content.ClipData
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Transformations
@@ -8,11 +10,11 @@ import androidx.lifecycle.ViewModelProvider
 
 class PageViewModel : ViewModel() {
 
-    val ARG_SECTION_NUMBER = "section_number"
+    val updateFlag = MutableLiveData<Boolean>()
 
-    private val _index = MutableLiveData<Int>()
-
-    fun setIndex(index: Int) {
-        _index.value = index
+    fun updateMap(update: Boolean)
+    {
+        Log.w("FIRE", "Fire detected")
+        updateFlag.value = update
     }
 }

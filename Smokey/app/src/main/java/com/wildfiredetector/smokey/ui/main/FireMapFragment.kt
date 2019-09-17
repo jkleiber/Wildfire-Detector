@@ -1,22 +1,31 @@
 package com.wildfiredetector.smokey.ui.main
 
+import android.content.Context
 import android.location.Location
 import android.os.Bundle
 import android.preference.PreferenceManager
+import android.util.Log.d
+import android.util.Log.w
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
+import com.wildfiredetector.smokey.FireManager
 import com.wildfiredetector.smokey.R
 import kotlinx.android.synthetic.main.fragment_fire_map.*
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.overlay.ItemizedIconOverlay
+import org.osmdroid.views.overlay.ItemizedIconOverlay.OnItemGestureListener
+import org.osmdroid.views.overlay.ItemizedOverlayWithFocus
+import org.osmdroid.views.overlay.OverlayItem
 
 
 class FireMapFragment : Fragment() {
@@ -27,9 +36,10 @@ class FireMapFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        pageViewModel = ViewModelProviders.of(this).get(PageViewModel::class.java).apply {
-            setIndex(arguments?.getInt(SectionsPagerAdapter.ARG_SECTION_NUMBER) ?: 1)
-        }
+        pageViewModel = activity?.run{
+            ViewModelProviders.of(this).get(PageViewModel::class.java)
+        } ?: throw Exception("Invalid Fire Map Activity")
+
     }
 
     override fun onCreateView(inflater: LayoutInflater,
@@ -80,11 +90,23 @@ class FireMapFragment : Fragment() {
         mapController.setZoom(12.5)
         mapController.setCenter(curPoint)
 
+        // TODO: Remove this debugging code
+        // add a fake fire
+        FireManager.addFire(context, lat, lon)
+
 
         fab.setOnClickListener { view ->
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
         }
+
+
+        pageViewModel.updateFlag.observe(this, Observer<Boolean> { _ ->
+            // If the map should be updated, update it
+            w("FIRE2", "Fire detected")
+            // display the fire
+            FireManager.updateFireMap(fireMap)
+        })
     }
 
     override fun onResume() {
