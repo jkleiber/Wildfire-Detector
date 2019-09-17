@@ -18,12 +18,10 @@ class FireManager {
             {
                 val fireMarker = fire.getFire(map)
 
-                map.overlays.add(fireMarker)
-                /*
                 if(!map.overlays.contains(fireMarker))
                 {
-
-                }*/
+                    map.overlays.add(fireMarker)
+                }
             }
         }
     }
