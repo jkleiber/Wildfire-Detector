@@ -3,6 +3,7 @@ package com.wildfiredetector.smokey.ui.main
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -10,9 +11,13 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.material.snackbar.Snackbar
+import com.wildfiredetector.smokey.Fire
+import com.wildfiredetector.smokey.FireManager
 import com.wildfiredetector.smokey.R
+import kotlinx.android.synthetic.main.fragment_fire_map.*
 import kotlinx.android.synthetic.main.fragment_overview.*
 import java.lang.ClassCastException
 import java.lang.Exception
@@ -23,6 +28,8 @@ class OverviewFragment : Fragment() {
 
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
+
+    private var currentLocation: Location? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,23 +48,23 @@ class OverviewFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-            // Listen for clicks on the fire report button
-            bDetectWildfire.setOnClickListener { view ->
-                Snackbar.make(view, "Fire Reported!", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show()
 
-                // Enable GPS detection
-                val approved = getPermissions(context)
+        pageViewModel.location.observe(this, Observer<Location> { item ->
+            // Display the fire
+            currentLocation = item
+        })
 
-                // If the GPS permissions are approved, add a fire
-                if(approved)
-                {
+        // Listen for clicks on the fire report button
+        bDetectWildfire.setOnClickListener { view ->
+            Snackbar.make(view, "Fire Reported!", Snackbar.LENGTH_LONG)
+                .setAction("Action", null).show()
 
-                }
+            // Add the fire to the map
+            FireManager.addFire(context, currentLocation?.latitude, currentLocation?.longitude)
 
-                // Update the map
-                pageViewModel.updateMap(true)
-            }
+            // Update the map
+            pageViewModel.updateMap(true)
+        }
     }
 
     private fun getPermissions(ctx: Context?): Boolean

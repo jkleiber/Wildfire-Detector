@@ -8,8 +8,13 @@ class FireManager {
     companion object {
         private var fires: ArrayList<Fire> = ArrayList()
 
-        fun addFire(context: Context?, lat: Double, lon: Double){
-            fires.add(Fire(context, lat, lon))
+        fun addFire(context: Context?, lat: Double?, lon: Double?){
+            if(context != null
+                && lat != null
+                && lon != null)
+            {
+                fires.add(Fire(context, lat, lon))
+            }
         }
 
         fun updateFireMap(map: MapView)

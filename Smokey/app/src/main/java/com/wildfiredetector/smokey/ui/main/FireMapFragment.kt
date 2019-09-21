@@ -39,6 +39,11 @@ class FireMapFragment : Fragment() {
     private val REQUEST_COARSE_LOC = 5
     private val REQUEST_FINE_LOC = 6
 
+    private val LOCATION_UPDATES_TIL_LOCK = 5   // Number of location updates until the location can be trusted
+
+    private var currentLocation: Location? = null
+    private var locationUpdates: Int = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -64,46 +69,28 @@ class FireMapFragment : Fragment() {
         // Set a map controller
         val mapController = fireMap.controller
 
-        // Get the user's location
+        pageViewModel.updateFlag.observe(this, Observer<Boolean> {
+            // Display the fire
+            FireManager.updateFireMap(fireMap)
+        })
+
+        pageViewModel.location.observe(this, Observer<Location> { item ->
+            // Display the fire
+            currentLocation = item
+
+            if(locationUpdates < LOCATION_UPDATES_TIL_LOCK)
+            {
+                mapController.setCenter(GeoPoint(currentLocation))
+                mapController.setZoom(14.0)
+
+                // Add another location update towards the unlocking from the current view
+                locationUpdates++
+            }
+        })
+
+        // Get the user's location (Default to Norman OK)
         var lat = 35.2226
         var lon = -97.4395
-
-        // Access the last known location
-        var ctx = context
-
-        if(ctx != null)
-        {
-            // Get the GPS permissions
-            val approved = getPermissions(ctx)
-            w("GPS_CTXT", "Context is good")
-
-            // If the GPS permission is approved, get the lat and lon
-            if(approved) {
-                w("APPROVED", "Permissions good")
-
-                fusedLocationClient = LocationServices.getFusedLocationProviderClient(ctx)
-                fusedLocationClient.lastLocation
-                    .addOnSuccessListener { location: Location? ->
-                        // Got last known location. In some rare situations this can be null.
-                        if (location != null) {
-                            w("APPROVED", "location good")
-                            lat = location.latitude
-                            lon = location.longitude
-
-                            mapController.setCenter(GeoPoint(lat, lon))
-                            mapController.setZoom(13.5)
-                        }
-                    }
-            }
-            else
-            {
-                w("REJECTED", "Permissions bad")
-            }
-        }
-        else
-        {
-            w("GPS_NOT_GOOD", "Context bad")
-        }
 
         // Setup the map tiling
         fireMap.setTileSource(TileSourceFactory.MAPNIK)
@@ -113,21 +100,12 @@ class FireMapFragment : Fragment() {
 
         // Start at a far zoom by default
         mapController.setZoom(5.0)
-
-        // TODO: Remove this debugging code
-        // add a fake fire
-        FireManager.addFire(context, lat, lon)
-
+/*
+        // TODO: make the FAB into a zoom to current location button
         fab.setOnClickListener { view ->
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
-        }
-
-
-        pageViewModel.updateFlag.observe(this, Observer<Boolean> {
-            // Display the fire
-            FireManager.updateFireMap(fireMap)
-        })
+        }*/
     }
 
     override fun onResume() {
@@ -140,38 +118,6 @@ class FireMapFragment : Fragment() {
         super.onPause()
 
         fireMap.onPause()
-    }
-
-    private fun getPermissions(ctx: Context?): Boolean
-    {
-        var result = false
-
-        if(ctx != null)
-        {
-            // Access coarse location
-            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-                // Permission is not granted
-                requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), REQUEST_COARSE_LOC)
-            }
-            else
-            {
-                result = true
-            }
-
-            // Access fine location
-            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-                // Permission is not granted
-                requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_FINE_LOC)
-            }
-            else
-            {
-                result = result && true
-            }
-        }
-
-        return result
     }
 
 }

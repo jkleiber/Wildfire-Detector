@@ -4,20 +4,29 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Bundle
+import android.util.Log
 import com.google.android.material.tabs.TabLayout
 import androidx.appcompat.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProviders
+import com.wildfiredetector.smokey.ui.main.PageViewModel
 import com.wildfiredetector.smokey.ui.main.SectionsPagerAdapter
 import kotlinx.android.synthetic.main.activity_main_screen.*
+import java.lang.Exception
 
 
-class MainScreenActivity : AppCompatActivity(){
+class MainScreenActivity : AppCompatActivity(), LocationListener {
 
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
+
+    private lateinit var pageViewModel: PageViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,6 +39,28 @@ class MainScreenActivity : AppCompatActivity(){
 
         val tabs: TabLayout = findViewById(R.id.tabs)
         tabs.setupWithViewPager(viewPager)
+
+        // Enable GPS detection
+        val approved = getPermissions()
+
+        if(approved)
+        {
+            // Initialize the location listener
+            try{
+                val locationManager: LocationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0.0f, this)
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0.0f, this)
+            }
+            catch (e: SecurityException)
+            {
+                e.printStackTrace()
+            }
+        }
+
+        // Init the page view model
+        pageViewModel = this.run{
+            ViewModelProviders.of(this).get(PageViewModel::class.java)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -52,7 +83,23 @@ class MainScreenActivity : AppCompatActivity(){
         }
     }
 
-    fun getPermissions(): Boolean
+    override fun onLocationChanged(location: Location?) {
+        if(location != null)
+        {
+            pageViewModel.updateLocation(location)
+        }
+    }
+
+    override fun onStatusChanged(p0: String?, p1: Int, p2: Bundle?) {
+    }
+
+    override fun onProviderEnabled(p0: String?) {
+    }
+
+    override fun onProviderDisabled(p0: String?) {
+    }
+
+    private fun getPermissions(): Boolean
     {
         var result: Boolean = false
 
