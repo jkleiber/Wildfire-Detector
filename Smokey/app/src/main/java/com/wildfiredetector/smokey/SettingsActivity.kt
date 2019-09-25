@@ -96,7 +96,7 @@ class SettingsActivity : AppCompatActivity() {
         bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
             // Get the device
             val clickedDevice: BluetoothDevice = btDevices[id.toInt()]
-            
+
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
         }
@@ -176,22 +176,6 @@ class SettingsActivity : AppCompatActivity() {
         // Populate bluetooth device list
         val adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, btReadableDevices)
         bluetoothDeviceList.adapter = adapter
-    }
-
-    companion object {
-        private val TAG = BluetoothLeService::class.java.simpleName
-
-        private val STATE_DISCONNECTED = 0
-        private val STATE_CONNECTING = 1
-        private val STATE_CONNECTED = 2
-
-        val ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED"
-        val ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED"
-        val ACTION_GATT_SERVICES_DISCOVERED = "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
-        val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
-        val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
-
-        val UUID_HEART_RATE_MEASUREMENT = UUID.fromString(SampleGattAttributes.HEART_RATE_MEASUREMENT)
     }
 }
 
