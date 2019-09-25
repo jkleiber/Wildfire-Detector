@@ -31,21 +31,57 @@ class SettingsActivity : AppCompatActivity() {
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
 
-    var btGattChar: ArrayList<BluetoothGattCharacteristic> = ArrayList()
+    var btGattServ: ArrayList<BluetoothGattService> = ArrayList()
     var btDevices: ArrayList<BluetoothDevice> = ArrayList()
     var btReadableDevices: ArrayList<String> = ArrayList()
 
+    /**
+     * Bluetooth Setup and scanning
+     **/
+    private val bleScanner = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult?) {
+            super.onScanResult(callbackType, result)
+            // makes sure that the name isn't null and that the device is also unique
+            if (result?.device?.name != null && !(btDevices.contains(result.device))) {
+                // Add a device to the device list
+                btDevices.add(result.device)
+                btReadableDevices.add("${result.device?.name}: ${result.device?.address}")
+            }
+        }
+
+        // Not sure what this does tbh
+        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+            super.onBatchScanResults(results)
+            Log.d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
+        }
+
+        // Error Checking
+        override fun onScanFailed(errorCode: Int) {
+            super.onScanFailed(errorCode)
+            Log.d("DeviceListActivity", "onScanFailed: $errorCode")
+        }
+    }
+
+    private val bluetoothLeScanner: BluetoothLeScanner
+        get() {
+            val bluetoothManager =
+                applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val bluetoothAdapter = bluetoothManager.adapter
+            return bluetoothAdapter.bluetoothLeScanner
+        }
+
+
+    // This code is for GATT connection of the the bluetooth device
     suspend fun BluetoothDevice.logGattServices(tag: String = "BleGattCoroutines") {
         val deviceConnection = GattConnection(bluetoothDevice = this@logGattServices)
         try {
             deviceConnection.connect() // Suspends until connection is established
             val gattServices = deviceConnection.discoverServices() // Suspends until completed
             gattServices.forEach {
+                btGattServ.add(it)
                 it.characteristics.forEach {
                     try {
                         deviceConnection.readCharacteristic(it) // Suspends until characteristic is read
-                        btGattChar.add(it)
-
 
                     } catch (e: Exception) {
                         Log.e(tag, "Couldn't read characteristic with uuid: ${it.uuid}", e)
@@ -87,6 +123,19 @@ class SettingsActivity : AppCompatActivity() {
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    override fun onStart() {
+        Log.d("DeviceListActivity", "onStart()")
+        super.onStart()
+
+        bluetoothLeScanner.startScan(bleScanner)
+
+    }
+
+    override fun onStop() {
+        bluetoothLeScanner.stopScan(bleScanner)
+        super.onStop()
     }
 
     /**
