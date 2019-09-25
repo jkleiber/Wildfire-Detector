@@ -16,6 +16,9 @@ buildscript {
 }
 
 allprojects {
+    ext {
+        blegattcoroutines_version = '0.4.1'
+    }
     repositories {
         google()
         jcenter()
