@@ -23,6 +23,8 @@ android {
 }
 
 dependencies {
+    implementation("com.beepiz.blegattcoroutines:blegattcoroutines-core:$blegattcoroutines_version")
+    implementation("com.beepiz.blegattcoroutines:blegattcoroutines-genericaccess:$blegattcoroutines_version")
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.appcompat:appcompat:1.0.2'
