@@ -1,31 +1,29 @@
 package com.wildfiredetector.smokey
 
-import android.app.Activity
-import android.content.BroadcastReceiver
+import android.Manifest
+import android.bluetooth.*
+import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
+import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log.d
+import android.util.Log
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.settings_activity.*
-import android.Manifest
-import android.bluetooth.*
-import android.bluetooth.le.BluetoothLeScanner
-import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanResult
-import android.util.Log
-import com.polidea.rxandroidble2.scan.ScanSettings
-import io.reactivex.disposables.Disposable
-import io.reactivex.internal.disposables.DisposableHelper.dispose
 import java.util.*
 import kotlin.collections.ArrayList
 
 class SettingsActivity : AppCompatActivity() {
+
+    private var mBluetoothGatt: BluetoothGatt? = null
+    private var mConnectionState = STATE_DISCONNECTED
 
     // Constants
     private val REQUEST_ENABLE_BT = 10
@@ -79,20 +77,32 @@ class SettingsActivity : AppCompatActivity() {
         bSensorConnect.setOnClickListener {
             if (getPermissions())
             {
-                btDevices.clear()
-                btReadableDevices.clear()
-
                 // Notify discovery has started
                 Snackbar.make(it, "Device Discovery Started...", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
 
                 updateDeviceList()
-            }
-        }
 
+                // Notifies if there are no BLE devices in the are
+                if(btDevices.isEmpty())
+                {
+                    // Notify no
+                    Toast.makeText(this, "No Buetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+        }
+        // When a bt device is clicked on the view get the device info
+        bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
+            // Get the device
+            val clickedDevice: BluetoothDevice = btDevices[id.toInt()]
+            
+            Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
+
+        }
     }
 
-    override fun onStart() {
+        override fun onStart() {
         Log.d("DeviceListActivity", "onStart()")
         super.onStart()
 
@@ -166,6 +176,22 @@ class SettingsActivity : AppCompatActivity() {
         // Populate bluetooth device list
         val adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, btReadableDevices)
         bluetoothDeviceList.adapter = adapter
+    }
+
+    companion object {
+        private val TAG = BluetoothLeService::class.java.simpleName
+
+        private val STATE_DISCONNECTED = 0
+        private val STATE_CONNECTING = 1
+        private val STATE_CONNECTED = 2
+
+        val ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED"
+        val ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED"
+        val ACTION_GATT_SERVICES_DISCOVERED = "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
+        val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
+        val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
+
+        val UUID_HEART_RATE_MEASUREMENT = UUID.fromString(SampleGattAttributes.HEART_RATE_MEASUREMENT)
     }
 }
 
