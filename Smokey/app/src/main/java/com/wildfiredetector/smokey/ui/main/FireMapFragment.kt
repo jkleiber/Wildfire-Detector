@@ -86,20 +86,37 @@ class FireMapFragment : Fragment() {
                 // Add another location update towards the unlocking from the current view
                 locationUpdates++
             }
+
+            // Update last known location
+            val sharedPref = context?.getSharedPreferences("LAST_LOCATION", Context.MODE_PRIVATE)
+            val prefEditor = sharedPref?.edit()
+            prefEditor?.putFloat("lat", item.latitude.toFloat())
+            prefEditor?.putFloat("lon", item.longitude.toFloat())
+            prefEditor?.commit()
         })
 
-        // Get the user's location (Default to Norman OK)
-        var lat = 35.2226
-        var lon = -97.4395
+        var lat = 0.0
+        var lon = 0.0
+
+
+        // Get the user's last known location
+        if (context != null)
+        {
+            val sharedPref = context!!.getSharedPreferences("LAST_LOCATION", Context.MODE_PRIVATE)
+            lat = sharedPref.getFloat("lat", 0.0f).toDouble()
+            lon = sharedPref.getFloat("lon", 0.0f).toDouble()
+        }
+
+        mapController.setCenter(GeoPoint(lat, lon))
 
         // Setup the map tiling
-        fireMap.setTileSource(TileSourceFactory.MAPNIK)
+        fireMap.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
 
         // Zoom controls
         fireMap.setMultiTouchControls(true)
 
         // Start at a far zoom by default
-        mapController.setZoom(5.0)
+        mapController.setZoom(8.0)
 /*
         // TODO: make the FAB into a zoom to current location button
         fab.setOnClickListener { view ->
