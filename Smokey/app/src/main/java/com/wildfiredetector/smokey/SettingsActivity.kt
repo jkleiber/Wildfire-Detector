@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.settings_activity.*
 import android.Manifest
+import java.util.*
+import kotlin.collections.ArrayList
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -66,19 +68,17 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onReceive(context: Context, intent: Intent) {
             val action: String = intent.action
-            d("BT_ACTION", action)
 
             when(action) {
                 BluetoothDevice.ACTION_FOUND -> {
                     // Discovery has found a device. Get the BluetoothDevice
                     // object and its info from the Intent.
                     val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-
-                    d("BLUETOOTH", "RECEIVED")
-                    d("BLUETOOTH", "${device.name}")
+                    // Found another method that might display more names on the list
+                    val deviceName: String? = intent.getStringExtra(BluetoothDevice.EXTRA_NAME)
 
                     // Add a device to the device list
-                    addDeviceToList(device)
+                    addDeviceToList(device, deviceName)
                 }
             }
         }
@@ -98,7 +98,18 @@ class SettingsActivity : AppCompatActivity() {
             // Request all the bluetooth permissions
             if(getPermissions()) {
                 // Open bluetooth connections
-                //startBluetooth(view.context)
+                startBluetooth(view.context)
+
+                // Set device to be discoverable
+                val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+                }
+                startActivity(discoverableIntent)
+
+
+                // Clear all the devices for rescanning
+                btDevices.clear()
+                btReadableDevices.clear()
 
                 // Connect to bluetooth devices
                 bluetoothAdapter?.startDiscovery()
@@ -110,6 +121,15 @@ class SettingsActivity : AppCompatActivity() {
                 // Clean up bluetooth connections
                 //stopBluetooth()
             }
+        }
+
+        // Connect to a device if it is clicked
+        bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
+            // Get the device
+            val device = btDevices[id.toInt()]
+
+            // Try connecting to the device
+            // btSocket = device.createRfcommSocketToServiceRecord()
         }
     }
 
@@ -134,7 +154,7 @@ class SettingsActivity : AppCompatActivity() {
      */
     private fun getPermissions(): Boolean
     {
-        var result: Boolean = false
+        var result: Boolean = true
 
         // Access bluetooth
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
@@ -219,15 +239,22 @@ class SettingsActivity : AppCompatActivity() {
         bluetoothAdapter?.closeProfileProxy(BluetoothProfile.HEADSET, bluetoothHeadset)
     }
 
-    private fun addDeviceToList(newDevice: BluetoothDevice)
+    private fun addDeviceToList(newDevice: BluetoothDevice, newName: String?)
     {
         // Add to the readable list
-        if (newDevice.name != null)
+        if(newDevice.name != null)
         {
             // Add a device to the device list
             btDevices.add(newDevice)
             btReadableDevices.add("${newDevice.name}: ${newDevice.address}")
         }
+
+        else if(newName != null)
+        {
+            btDevices.add(newDevice)
+            btReadableDevices.add("$newName: ${newDevice.address}")
+        }
+
 
         // Update the device list
         updateDeviceList()
