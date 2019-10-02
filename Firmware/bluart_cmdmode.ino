@@ -83,7 +83,7 @@ Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_
 
 
 // A small helper
-void error(const __FlashStringHelper*err) 
+void error(const __FlashStringHelper*err)
 {
   Serial.println(err);
   while (1);
@@ -91,18 +91,18 @@ void error(const __FlashStringHelper*err)
 
 void detected()
 {
-    //TODO: Measure value at analog in at the same time and determine if there is a fire
     bool fire = false;
+    static unsigned long lastInterruptTime = 0;
     float fireSignal = analogRead(FIRE_ANALOG);
 
-    if(fire)
+    //TODO: Measure value at analog in at the same time and determine if there is a fire
+
+    // Only send signal every 5 seconds. OR handles millis rollover.
+    if(fire && ((millis() - lastInterruptTime > 5000) || (millis() - lastInterruptTime < 0))
     {
-      // Send signal to app
+      //TODO: Send signal to app
     }
-    else
-    {
-      // Don't do anything?
-    }
+    lastInterruptTime = millis();
 }
 
 /**************************************************************************/
@@ -118,13 +118,11 @@ void setup(void)
   pinMode(FIRE_ANALOG, INPUT);
   pinMode(FIRE_DIGITAL, INPUT_PULLDOWN);
   attachInterrupt(digitalPinToInterrupt(FIRE_DIGITAL), detected, RISING);
-  
+
   while (!Serial);  // required for Flora & Micro
   delay(500);
 
   Serial.begin(115200);
-  Serial.println(F("Adafruit Bluefruit Command Mode Example"));
-  Serial.println(F("---------------------------------------"));
 
   /* Initialise the module */
   Serial.print(F("Initialising the Bluefruit LE module: "));
