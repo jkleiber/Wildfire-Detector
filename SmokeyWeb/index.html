@@ -1,0 +1,33 @@
+<html>
+
+<head>
+    <script>
+        var x;
+        function getLocation() {
+            x = document.getElementById("location")
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition);
+          } else {
+            x.innerHTML = "Geolocation is not supported by this browser.";
+          }
+        }
+        
+        function showPosition(position) {
+          x.innerHTML = "Latitude: " + position.coords.latitude +
+          "<br>Longitude: " + position.coords.longitude;
+        }
+    </script> 
+</head>
+
+<body onload="getLocation()">
+    <h1> Smokey </h1>
+    Only you can prevent forest fires
+
+    <br><br>
+
+    <span id="location">
+
+    </span>
+</body>
+
+</html>
