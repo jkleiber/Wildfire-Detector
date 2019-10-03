@@ -1,29 +1,64 @@
+<!DOCTYPE html>
 <html>
 
 <head>
+    <script src="OpenLayers-2.13.1/OpenLayers.js"></script>
+
     <script>
-        var x;
-        function getLocation() {
-            x = document.getElementById("location")
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(showPosition);
-          } else {
-            x.innerHTML = "Geolocation is not supported by this browser.";
-          }
+        var map;
+
+        function getLocation() 
+        {
+            if (navigator.geolocation) 
+            {
+                navigator.geolocation.getCurrentPosition(showPosition);
+            } 
+            else 
+            {
+                console.log("Geolocation is not supported by this browser.")
+            }
         }
         
-        function showPosition(position) {
-          x.innerHTML = "Latitude: " + position.coords.latitude +
-          "<br>Longitude: " + position.coords.longitude;
+        function showPosition(position) 
+        {
+            var fromProjection = new OpenLayers.Projection("EPSG:4326"); // transform from WGS 1984
+            var toProjection = new OpenLayers.Projection("EPSG:900913"); // to Spherical Mercator Projection
+            var pos = new OpenLayers.LonLat(position.coords.longitude, position.coords.latitude).transform(fromProjection, toProjection)
+            console.log(pos)
+            map.setCenter(pos, 15.0)
         }
-    </script> 
+
+        function startMap() 
+        {
+            map = new OpenLayers.Map("demoMap");
+            map.addLayer(new OpenLayers.Layer.OSM());
+            map.zoomToMaxExtent();
+        }
+
+        function setup()
+        {
+            startMap()
+            getLocation()
+        }
+    </script>
+
+    
 </head>
 
-<body onload="getLocation()">
+<body onload="setup()">
     <h1> Smokey </h1>
     Only you can prevent forest fires
 
     <br><br>
+
+    <br><br>
+
+    <h3>OpenLayers Simplest Example<h3>
+    <div id="demoMap" style="height:500px"></div>
+    
+    <script>
+        
+    </script>
 
     <span id="location">
 
