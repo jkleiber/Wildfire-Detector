@@ -2,4 +2,6 @@
     <string name="app_name">Smokey</string>
     <string name="action_settings">Settings</string>
     <string name="action_devices">Devices</string>
+    <string name="tab_text_1">Overview</string>
+    <string name="tab_text_2">Fire Map</string>
 </resources>
