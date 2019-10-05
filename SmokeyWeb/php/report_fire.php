@@ -1,4 +1,7 @@
 <?php
+    //Connect to the database
+    require_once("db_connect.php");
+
     // Ensure all required fields are filled out
     if(isset($_POST['latitude']) 
     && isset($_POST['longitude']))
@@ -23,7 +26,25 @@
         // Inserting data failed, so print an error
         catch(PDOException $e)
         {
-            echo $e->getMessage();
+            // Print error
+            printf("%s\n", $e->getMessage());
+
+            // Respond with error
+            echo json_encode(array('message' => 'ERROR: '.  $e->getMessage()));
+            
+            // Exit the script
+            exit();
         }
+
+        // Respond to request with success
+        echo json_encode(array('message' => 'SUCCESS: Fire added to database successfully'));
+        exit();
     }
+    
+    // Debugging output
+    require_once("debug.php");
+
+    // Respond to request with error due to invalid post
+    $post_contents = arrayToString($_POST, "");
+    echo json_encode(array('message' => 'ERROR: Incorrect POST format', 'received' => $post_contents));
 ?>
