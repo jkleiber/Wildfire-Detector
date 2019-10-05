@@ -4,23 +4,26 @@
 <head>
     <script src="OpenLayers-2.13.1/OpenLayers.js"></script>
     <script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 
+    <!-- Map setup stuff -->
     <script>
         var map;
+        var markers;
 
-        function getLocation() 
+        function getLocation()
         {
-            if (navigator.geolocation) 
+            if (navigator.geolocation)
             {
                 navigator.geolocation.getCurrentPosition(showPosition);
-            } 
-            else 
+            }
+            else
             {
                 console.log("Geolocation is not supported by this browser.")
             }
         }
-        
-        function showPosition(position) 
+
+        function showPosition(position)
         {
             var fromProjection = new OpenLayers.Projection("EPSG:4326"); // transform from WGS 1984
             var toProjection = new OpenLayers.Projection("EPSG:900913"); // to Spherical Mercator Projection
@@ -28,21 +31,73 @@
             map.setCenter(pos, 15.0)
         }
 
-        function startMap() 
+        function startMap()
         {
+            // Set the default map up
             map = new OpenLayers.Map("demoMap");
             map.addLayer(new OpenLayers.Layer.OSM());
             map.zoomToMaxExtent();
+
+            // Add a layer for markers
+            markers = new OpenLayers.Layer.Markers("Markers");
+            map.addLayer(markers);
         }
 
         function setup()
         {
             startMap()
+            getFireReports()
             getLocation()
         }
     </script>
 
-    
+    <!-- Fire Report retrieval stuff -->
+    <script>
+        function getFireReports()
+        {
+            $.ajax({
+                type: "POST",
+                url: 'php/get_all_reports.php',
+                success: function(data)
+                {
+                    populateMap(data)
+                },
+                error: function()
+                {
+                    console.log('AJAX fail')
+                }
+            });
+        }
+
+        function populateMap(fires)
+        {
+            // Parse the JSON
+            fireList = JSON.parse(fires)
+
+            // Go through each fire
+            fireList.forEach(function(fire)
+            {
+                // Convert the JSON string into an object
+                fire_json = JSON.parse(fire)
+
+                // Find the fire location from the JSON response
+                var fireLocation = new OpenLayers.LonLat(fire_json.lon, fire_json.lat).transform(new OpenLayers.Projection("EPSG:4326"), new OpenLayers.Projection("EPSG:900913"))
+
+                // TODO: do we want this behavior?
+                // Center onto the most recent fire report
+                map.setCenter(fireLocation, 15.0)
+
+                // Create a marker object and add the image
+                var fireIcon = new OpenLayers.Icon("img/fire.png")
+                var fireMarker = new OpenLayers.Marker(fireLocation, fireIcon)
+
+                // Add the marker to the map
+                markers.addMarker(fireMarker)
+            });
+        }
+    </script>
+
+
 </head>
 
 <body onload="setup()">
