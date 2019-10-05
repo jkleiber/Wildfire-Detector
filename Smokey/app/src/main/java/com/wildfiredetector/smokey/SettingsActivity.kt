@@ -1,15 +1,24 @@
 package com.wildfiredetector.smokey
 import android.Manifest
+import android.app.Activity
+import android.app.Service
 import android.bluetooth.*
 import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
 import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.nfc.NfcAdapter.EXTRA_DATA
+import android.os.Binder
 import android.os.Bundle
+import android.os.IBinder
 import android.util.Log
+import android.util.Log.*
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -21,6 +30,17 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 class SettingsActivity : AppCompatActivity() {
+
+    // BLE GATT services
+    private val STATE_DISCONNECTED = 0
+    private val STATE_CONNECTING = 1
+    private val STATE_CONNECTED = 2
+    val ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED"
+    val ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED"
+    val ACTION_GATT_SERVICES_DISCOVERED =
+        "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
+    val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
+    val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
 
     private var mBluetoothGatt: BluetoothGatt? = null
     private var mConnectionState = STATE_DISCONNECTED
@@ -34,6 +54,8 @@ class SettingsActivity : AppCompatActivity() {
     var btGattServ: ArrayList<BluetoothGattService> = ArrayList()
     var btDevices: ArrayList<BluetoothDevice> = ArrayList()
     var btReadableDevices: ArrayList<String> = ArrayList()
+
+
 
     /**
      * Bluetooth Setup and scanning
@@ -118,10 +140,23 @@ class SettingsActivity : AppCompatActivity() {
         }
         // When a bt device is clicked on the view get the device info
         bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
+            d("LOL", "This is reached")
+
             // Get the device
             val clickedDevice: BluetoothDevice = btDevices[id.toInt()]
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
+
+            d("LOL", "Gatt begin")
+
+            var bluetoothGatt: BluetoothGatt? = null
+            // implement gattCallback
+            bluetoothGatt = clickedDevice.connectGatt(this, false, BluetoothLeService().gattCallback)
+
+            // TODO: actually use bluetoothGatt
+            var rssi = bluetoothGatt.readRemoteRssi()
+
+            d("LOL", "RSSI: $rssi")
         }
     }
 
@@ -133,10 +168,139 @@ class SettingsActivity : AppCompatActivity() {
 
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        registerReceiver(gattUpdateReceiver, makeGattIntentFilter())
+    }
+
+    override fun onPause() {
+        super.onPause()
+
+        unregisterReceiver(gattUpdateReceiver)
+    }
+
     override fun onStop() {
         bluetoothLeScanner.stopScan(bleScanner)
         super.onStop()
     }
+
+
+    // A service that interacts with the BLE device via the Android BLE API.
+    class BluetoothLeService : Service() {
+        override fun onBind(p0: Intent?): IBinder? {
+            w("LMAO", "onBind called from Bluetooth LE service")
+            return Binder()
+        }
+
+        val TAG = "BLE GATT"
+        val UUID_HEART_RATE_MEASUREMENT =  UUID.randomUUID()
+
+        // BLE GATT services
+        private val STATE_DISCONNECTED = 0
+        private val STATE_CONNECTING = 1
+        private val STATE_CONNECTED = 2
+        val ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED"
+        val ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED"
+        val ACTION_GATT_SERVICES_DISCOVERED =
+            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
+        val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
+        val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
+
+        private fun broadcastUpdate(action: String) {
+            val intent = Intent(action)
+            sendBroadcast(intent)
+        }
+
+        private fun broadcastUpdate(action: String, characteristic: BluetoothGattCharacteristic) {
+            val intent = Intent(action)
+
+            // This is special handling for the Heart Rate Measurement profile. Data
+            // parsing is carried out as per profile specifications.
+            when (characteristic.uuid) {
+                UUID_HEART_RATE_MEASUREMENT -> {
+                    val flag = characteristic.properties
+                    val format = when (flag and 0x01) {
+                        0x01 -> {
+                            Log.d(TAG, "Heart rate format UINT16.")
+                            BluetoothGattCharacteristic.FORMAT_UINT16
+                        }
+                        else -> {
+                            Log.d(TAG, "Heart rate format UINT8.")
+                            BluetoothGattCharacteristic.FORMAT_UINT8
+                        }
+                    }
+                    val heartRate = characteristic.getIntValue(format, 1)
+                    Log.d(TAG, String.format("Received heart rate: %d", heartRate))
+                    intent.putExtra(EXTRA_DATA, (heartRate).toString())
+                }
+                else -> {
+                    // For all other profiles, writes the data formatted in HEX.
+                    val data: ByteArray? = characteristic.value
+                    if (data?.isNotEmpty() == true) {
+                        val hexString: String = data.joinToString(separator = " ") {
+                            String.format("%02X", it)
+                        }
+                        intent.putExtra(EXTRA_DATA, "$data\n$hexString")
+                    }
+                }
+
+            }
+            sendBroadcast(intent)
+        }
+
+        private var connectionState = STATE_DISCONNECTED
+
+        // Various callback methods defined by the BLE API.
+        val gattCallback = object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(
+                gatt: BluetoothGatt,
+                status: Int,
+                newState: Int
+            ) {
+                val intentAction: String
+                when (newState) {
+                    BluetoothProfile.STATE_CONNECTED -> {
+                        intentAction = ACTION_GATT_CONNECTED
+                        connectionState = STATE_CONNECTED
+                        broadcastUpdate(intentAction)
+                        Log.i(TAG, "Connected to GATT server.")
+                        Log.i(TAG, "Attempting to start service discovery: " +
+                                gatt?.discoverServices())
+                    }
+                    BluetoothProfile.STATE_DISCONNECTED -> {
+                        intentAction = ACTION_GATT_DISCONNECTED
+                        connectionState = STATE_DISCONNECTED
+                        Log.i(TAG, "Disconnected from GATT server.")
+                        broadcastUpdate(intentAction)
+                    }
+                }
+            }
+
+            // New services discovered
+            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                when (status) {
+                    BluetoothGatt.GATT_SUCCESS -> broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED)
+                    else -> Log.w(TAG, "onServicesDiscovered received: $status")
+                }
+            }
+
+            // Result of a characteristic read operation
+            override fun onCharacteristicRead(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                status: Int
+            ) {
+                when (status) {
+                    BluetoothGatt.GATT_SUCCESS -> {
+                        broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic)
+                    }
+                }
+            }
+        }
+    }
+
+
 
     /**
      * Permissions
@@ -199,6 +363,51 @@ class SettingsActivity : AppCompatActivity() {
         // Populate bluetooth device list
         val adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, btReadableDevices)
         bluetoothDeviceList.adapter = adapter
+    }
+
+    private fun makeGattIntentFilter(): IntentFilter
+    {
+        var intentFilter: IntentFilter = IntentFilter()
+        intentFilter.addAction(ACTION_DATA_AVAILABLE)
+        intentFilter.addAction(ACTION_GATT_CONNECTED)
+        intentFilter.addAction(ACTION_GATT_DISCONNECTED)
+        intentFilter.addAction(ACTION_GATT_SERVICES_DISCOVERED)
+
+        return intentFilter
+    }
+    // Handles various events fired by the Service.
+// ACTION_GATT_CONNECTED: connected to a GATT server.
+// ACTION_GATT_DISCONNECTED: disconnected from a GATT server.
+// ACTION_GATT_SERVICES_DISCOVERED: discovered GATT services.
+// ACTION_DATA_AVAILABLE: received data from the device. This can be a
+// result of read or notification operations.
+    private val gattUpdateReceiver = object : BroadcastReceiver() {
+
+        private lateinit var bluetoothLeService: BluetoothLeService
+
+        override fun onReceive(context: Context, intent: Intent) {
+            val action = intent.action
+            when (action){
+                ACTION_GATT_CONNECTED -> {
+                    //connected = true
+                    //updateConnectionState(R.string.connected)
+                    (context as? Activity)?.invalidateOptionsMenu()
+                }
+                ACTION_GATT_DISCONNECTED -> {
+                    //connected = false
+                    //updateConnectionState(R.string.disconnected)
+                    (context as? Activity)?.invalidateOptionsMenu()
+                    //clearUI()
+                }
+                ACTION_GATT_SERVICES_DISCOVERED -> {
+                    // Show all the supported services and characteristics on the
+                    // user interface.
+                }
+                ACTION_DATA_AVAILABLE -> {
+                    //displayData(intent.getStringExtra(BluetoothLeService.EXTRA_DATA))
+                }
+            }
+        }
     }
 }
 
