@@ -1,14 +1,16 @@
 <?php
-    //Connect to the database
-    require_once("db_connect.php");
+    $post_data = json_decode(file_get_contents('php://input'), true);
 
     // Ensure all required fields are filled out
-    if(isset($_POST['latitude']) 
-    && isset($_POST['longitude']))
+    if(isset($post_data['latitude']) 
+    && isset($post_data['longitude']))
     {
+        //Connect to the database
+        require_once("db_connect.php");
+
         // Get report information
-        $lat = $_POST['latitude'];
-        $lon = $_POST['longitude'];
+        $lat = $post_data['latitude'];
+        $lon = $post_data['longitude'];
 
         // Form a point from the latitude and longitude
         $point = "POINT(". $pdo->quote($lat) . ", " . $pdo->quote($lon) .")";
@@ -45,6 +47,5 @@
     require_once("debug.php");
 
     // Respond to request with error due to invalid post
-    $post_contents = arrayToString($_POST, "");
-    echo json_encode(array('message' => 'ERROR: Incorrect POST format', 'received' => $post_contents));
+    echo json_encode(array('message' => 'ERROR: Incorrect POST format'));
 ?>

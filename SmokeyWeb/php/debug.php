@@ -1,20 +1,18 @@
 <?php
 
-function arrayToString($array, $arr_str)
+function arrayToString($array)
 {
     foreach ($array as $key => $value)
     {
         // Add element to the array string
-        $arr_str .= "$key => $value \n";
+        echo "$key => $value";
 
         // If $value is an array, print it as well!
         if(is_array($value))
         { 
-            $arr_str = printArray($value, $arr_str);
+            printArray($value);
         }  
     }
-
-    return $arr_str;
 }
 
 ?>
