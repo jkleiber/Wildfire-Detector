@@ -180,12 +180,6 @@ class SettingsActivity : AppCompatActivity() {
         unregisterReceiver(gattUpdateReceiver)
     }
 
-    override fun onStop() {
-        bluetoothLeScanner.stopScan(bleScanner)
-        super.onStop()
-    }
-
-
     // A service that interacts with the BLE device via the Android BLE API.
     class BluetoothLeService : Service() {
         override fun onBind(p0: Intent?): IBinder? {
@@ -214,40 +208,19 @@ class SettingsActivity : AppCompatActivity() {
 
         private fun broadcastUpdate(action: String, characteristic: BluetoothGattCharacteristic) {
             val intent = Intent(action)
-
-            // This is special handling for the Heart Rate Measurement profile. Data
             // parsing is carried out as per profile specifications.
-            when (characteristic.uuid) {
-                UUID_HEART_RATE_MEASUREMENT -> {
-                    val flag = characteristic.properties
-                    val format = when (flag and 0x01) {
-                        0x01 -> {
-                            Log.d(TAG, "Heart rate format UINT16.")
-                            BluetoothGattCharacteristic.FORMAT_UINT16
-                        }
-                        else -> {
-                            Log.d(TAG, "Heart rate format UINT8.")
-                            BluetoothGattCharacteristic.FORMAT_UINT8
-                        }
-                    }
-                    val heartRate = characteristic.getIntValue(format, 1)
-                    Log.d(TAG, String.format("Received heart rate: %d", heartRate))
-                    intent.putExtra(EXTRA_DATA, (heartRate).toString())
+            // For all profiles writes the data formatted in HEX.
+            val data: ByteArray? = characteristic.value
+            if (data?.isNotEmpty() == true) {
+                val hexString: String = data.joinToString(separator = " ") {
+                    String.format("%02X", it)
                 }
-                else -> {
-                    // For all other profiles, writes the data formatted in HEX.
-                    val data: ByteArray? = characteristic.value
-                    if (data?.isNotEmpty() == true) {
-                        val hexString: String = data.joinToString(separator = " ") {
-                            String.format("%02X", it)
-                        }
-                        intent.putExtra(EXTRA_DATA, "$data\n$hexString")
-                    }
-                }
-
+                intent.putExtra(EXTRA_DATA, "$data\n$hexString")
             }
+
             sendBroadcast(intent)
         }
+
 
         private var connectionState = STATE_DISCONNECTED
 
@@ -298,6 +271,10 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+    override fun onStop() {
+        bluetoothLeScanner.stopScan(bleScanner)
+        super.onStop()
     }
 
 
