@@ -116,7 +116,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Log.d("DeviceListActivity", "onCreate()")
+        d("DeviceListActivity", "onCreate()")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
 
@@ -161,7 +161,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onStart() {
-        Log.d("DeviceListActivity", "onStart()")
+        d("DeviceListActivity", "onStart()")
         super.onStart()
 
         bluetoothLeScanner.startScan(bleScanner)
@@ -221,7 +221,6 @@ class SettingsActivity : AppCompatActivity() {
             sendBroadcast(intent)
         }
 
-
         private var connectionState = STATE_DISCONNECTED
 
         // Various callback methods defined by the BLE API.
@@ -237,14 +236,14 @@ class SettingsActivity : AppCompatActivity() {
                         intentAction = ACTION_GATT_CONNECTED
                         connectionState = STATE_CONNECTED
                         broadcastUpdate(intentAction)
-                        Log.i(TAG, "Connected to GATT server.")
-                        Log.i(TAG, "Attempting to start service discovery: " +
+                        i(TAG, "Connected to GATT server.")
+                        i(TAG, "Attempting to start service discovery: " +
                                 gatt?.discoverServices())
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         intentAction = ACTION_GATT_DISCONNECTED
                         connectionState = STATE_DISCONNECTED
-                        Log.i(TAG, "Disconnected from GATT server.")
+                        i(TAG, "Disconnected from GATT server.")
                         broadcastUpdate(intentAction)
                     }
                 }
@@ -254,7 +253,7 @@ class SettingsActivity : AppCompatActivity() {
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 when (status) {
                     BluetoothGatt.GATT_SUCCESS -> broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED)
-                    else -> Log.w(TAG, "onServicesDiscovered received: $status")
+                    else -> w(TAG, "onServicesDiscovered received: $status")
                 }
             }
 
@@ -269,6 +268,45 @@ class SettingsActivity : AppCompatActivity() {
                         broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic)
                     }
                 }
+            }
+
+            override fun onCharacteristicWrite(
+                gatt: BluetoothGatt?,
+                characteristic: BluetoothGattCharacteristic?,
+                status: Int
+            ) {
+                super.onCharacteristicWrite(gatt, characteristic, status)
+                i(TAG, "onCharacteristicWrite")
+            }
+
+            override fun onCharacteristicChanged(
+                gatt: BluetoothGatt?,
+                characteristic: BluetoothGattCharacteristic?
+            ) {
+                super.onCharacteristicChanged(gatt, characteristic)
+                i(TAG, "onCharacteristicChanged")
+                // Here you can read the characteristc's value
+                // hopefully this is what someting I can use
+                val temp = characteristic?.value
+                i(TAG, "ByteArray sent: $temp")
+            }
+
+            override fun onDescriptorRead(
+                gatt: BluetoothGatt?,
+                descriptor: BluetoothGattDescriptor?,
+                status: Int
+            ) {
+                super.onDescriptorRead(gatt, descriptor, status)
+                i(TAG, "onDescriptorRead")
+            }
+
+            override fun onDescriptorWrite(
+                gatt: BluetoothGatt?,
+                descriptor: BluetoothGattDescriptor?,
+                status: Int
+            ) {
+                super.onDescriptorWrite(gatt, descriptor, status)
+                i(TAG, "onDescriptorWrite")
             }
         }
     }
