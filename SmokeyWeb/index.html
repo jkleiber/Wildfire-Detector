@@ -2,9 +2,15 @@
 <html>
 
 <head>
-    <script src="OpenLayers-2.13.1/OpenLayers.js"></script>
     <script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js"
+        integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og=="
+        crossorigin=""></script>
 
     <!-- Map setup stuff -->
     <script>
@@ -25,22 +31,19 @@
 
         function showPosition(position)
         {
-            var fromProjection = new OpenLayers.Projection("EPSG:4326"); // transform from WGS 1984
-            var toProjection = new OpenLayers.Projection("EPSG:900913"); // to Spherical Mercator Projection
-            var pos = new OpenLayers.LonLat(position.coords.longitude, position.coords.latitude).transform(fromProjection, toProjection)
-            map.setCenter(pos, 15.0)
+            var pos = L.latLng(position.coords.latitude, position.coords.longitude)
+            map.setView(pos, 15.0)
         }
 
         function startMap()
         {
             // Set the default map up
-            map = new OpenLayers.Map("demoMap");
-            map.addLayer(new OpenLayers.Layer.OSM());
-            map.zoomToMaxExtent();
+            map = L.map('map').setView([35, -94.3], 5)
 
-            // Add a layer for markers
-            markers = new OpenLayers.Layer.Markers("Markers");
-            map.addLayer(markers);
+            // Add tile engine
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
         }
 
         function setup()
@@ -81,18 +84,21 @@
                 fire_json = JSON.parse(fire)
 
                 // Find the fire location from the JSON response
-                var fireLocation = new OpenLayers.LonLat(fire_json.lon, fire_json.lat).transform(new OpenLayers.Projection("EPSG:4326"), new OpenLayers.Projection("EPSG:900913"))
+                var fireLocation = L.latLng(fire_json.lat, fire_json.lon)
 
                 // TODO: do we want this behavior?
                 // Center onto the most recent fire report
-                map.setCenter(fireLocation, 15.0)
+                map.setView(fireLocation, 15.0)
 
                 // Create a marker object and add the image
-                var fireIcon = new OpenLayers.Icon("img/fire.png")
-                var fireMarker = new OpenLayers.Marker(fireLocation, fireIcon)
+                var fireIcon = L.icon({iconUrl: "img/fire.png", iconSize: [48, 48], iconAnchor: [24, 48], popupAnchor: [0, -48]});
+                var fireMarker = L.marker(fireLocation, {icon: fireIcon});
+
+                // Add a popup to the marker
+                fireMarker.bindPopup("<b>Reported at: </b>" + fire_json.timestamp)
 
                 // Add the marker to the map
-                markers.addMarker(fireMarker)
+                fireMarker.addTo(map)
             });
         }
     </script>
@@ -106,7 +112,7 @@
 
     <br><br>
 
-    <div id="demoMap" style="height:500px"></div>
+    <div id="map" style="height:640px"></div>
 
 </body>
 
