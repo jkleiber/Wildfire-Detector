@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
 import android.preference.PreferenceManager
+import android.util.Log
 import android.util.Log.d
 import android.util.Log.w
 import android.view.LayoutInflater
@@ -15,13 +16,20 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
+import com.android.volley.Request
+import com.android.volley.Response
+import com.android.volley.toolbox.JsonArrayRequest
+import com.android.volley.toolbox.JsonObjectRequest
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import com.wildfiredetector.smokey.FireManager
 import com.wildfiredetector.smokey.R
+import com.wildfiredetector.smokey.VolleySingleton
 import kotlinx.android.synthetic.main.fragment_fire_map.*
+import org.json.JSONArray
+import org.json.JSONObject
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -39,10 +47,12 @@ class FireMapFragment : Fragment() {
     private val REQUEST_COARSE_LOC = 5
     private val REQUEST_FINE_LOC = 6
 
-    private val LOCATION_UPDATES_TIL_LOCK = 5   // Number of location updates until the location can be trusted
+    private val LOCATION_UPDATES_TIL_LOCK = 2   // Number of location updates until the location can be trusted
 
     private var currentLocation: Location? = null
     private var locationUpdates: Int = 0
+
+    private val allReportsURL = "http://smokey.x10.bz/php/get_all_reports.php"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,9 +79,50 @@ class FireMapFragment : Fragment() {
         // Set a map controller
         val mapController = fireMap.controller
 
+        // Get all the fire reports in the database
+        // TODO: only get active fires and active fire reports
+        val getAllFiresRequest = JsonArrayRequest(Request.Method.POST, allReportsURL, null,
+            Response.Listener{ fires: JSONArray ->
+                d("RESPONSE", fires.toString(2))
+
+                // Process fires from database
+                receiveFires(fires)
+
+                // Update the map
+                FireManager.updateFireMap(fireMap)
+            },
+            Response.ErrorListener {
+                Log.e("RESPONSE", it?.message)
+                val errorText = "Failed to report fire: %s".format(it.message)
+                Snackbar.make(view, errorText, Snackbar.LENGTH_LONG)
+                    .setAction("Action", null).show()
+            }
+        )
+
+        // Send the request to initialize the map
+        VolleySingleton.getInstance(context!!).addToRequestQueue(getAllFiresRequest)
+
         pageViewModel.updateFlag.observe(this, Observer<Boolean> {
-            // Display the fire
-            FireManager.updateFireMap(fireMap)
+            // Pull the fire from the database
+            val updateFiresRequest = JsonArrayRequest(Request.Method.POST, allReportsURL, null,
+                Response.Listener{ fires: JSONArray ->
+                    d("RESPONSE", fires.toString(2))
+
+                    // Update the current fires from request and refresh the map
+                    FireManager.clearFires()
+                    receiveFires(fires)
+                    FireManager.updateFireMap(fireMap)
+                },
+                Response.ErrorListener {
+                    Log.e("RESPONSE", it?.message)
+                    val errorText = "Failed to report fire: %s".format(it.message)
+                    Snackbar.make(view, errorText, Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show()
+                }
+            )
+
+            // Send the update request
+            VolleySingleton.getInstance(context!!).addToRequestQueue(updateFiresRequest)
         })
 
         pageViewModel.location.observe(this, Observer<Location> { item ->
@@ -135,6 +186,25 @@ class FireMapFragment : Fragment() {
         super.onPause()
 
         fireMap.onPause()
+    }
+
+    private fun receiveFires(fires: JSONArray)
+    {
+        // Go through each fire in the report
+        for(i in 1..fires.length())
+        {
+            // Get the individual fire
+            val fireString = fires.getString(i - 1)
+            val fire = JSONObject(fireString)
+
+            // Get the fire info
+            val fireTime = fire.getString("timestamp")
+            val fireLat = fire.getDouble("lat")
+            val fireLon = fire.getDouble("lon")
+
+            // Add the fire to the map
+            FireManager.addFire(context, fireLat, fireLon, fireTime)
+        }
     }
 
 }
