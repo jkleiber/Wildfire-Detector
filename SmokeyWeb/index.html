@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js"
+        integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og=="
+        crossorigin=""></script>
+
+    <!-- Map setup stuff -->
+    <script>
+        var map;
+        var markers;
+
+        function getLocation()
+        {
+            if (navigator.geolocation)
+            {
+                navigator.geolocation.getCurrentPosition(showPosition);
+            }
+            else
+            {
+                console.log("Geolocation is not supported by this browser.")
+            }
+        }
+
+        function showPosition(position)
+        {
+            var pos = L.latLng(position.coords.latitude, position.coords.longitude)
+            map.setView(pos, 15.0)
+        }
+
+        function startMap()
+        {
+            // Set the default map up
+            map = L.map('map').setView([35, -94.3], 5)
+
+            // Add tile engine
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+
+        function setup()
+        {
+            startMap()
+            getFireReports()
+            getLocation()
+        }
+    </script>
+
+    <!-- Fire Report retrieval stuff -->
+    <script>
+        function getFireReports()
+        {
+            $.ajax({
+                type: "POST",
+                url: 'php/get_all_reports.php',
+                success: function(data)
+                {
+                    populateMap(data)
+                },
+                error: function()
+                {
+                    console.log('AJAX fail')
+                }
+            });
+        }
+
+        function populateMap(fires)
+        {
+            // Parse the JSON
+            fireList = JSON.parse(fires)
+
+            // Go through each fire
+            fireList.forEach(function(fire)
+            {
+                // Convert the JSON string into an object
+                fire_json = JSON.parse(fire)
+
+                // Find the fire location from the JSON response
+                var fireLocation = L.latLng(fire_json.lat, fire_json.lon)
+
+                // TODO: do we want this behavior?
+                // Center onto the most recent fire report
+                map.setView(fireLocation, 15.0)
+
+                // Create a marker object and add the image
+                var fireIcon = L.icon({iconUrl: "img/fire.png", iconSize: [48, 48], iconAnchor: [24, 48], popupAnchor: [0, -48]});
+                var fireMarker = L.marker(fireLocation, {icon: fireIcon});
+
+                // Add a popup to the marker
+                fireMarker.bindPopup("<b>Reported at: </b>" + fire_json.timestamp)
+
+                // Add the marker to the map
+                fireMarker.addTo(map)
+            });
+        }
+    </script>
+
+
+</head>
+
+<body onload="setup()">
+    <h1> Smokey </h1>
+    Only you can prevent forest fires
+
+    <br><br>
+
+    <div id="map" style="height:640px"></div>
+
+</body>
+
+<footer>
+    (C) Smokey 2019
+</footer>
+
+</html>
