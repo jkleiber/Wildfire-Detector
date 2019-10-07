@@ -10,17 +10,11 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatter.*
 
-class Fire(context: Context?, lat: Double, lon: Double) {
+class Fire(context: Context?, lat: Double, lon: Double, timestamp: String) {
     private val ctx = context
     private var latitude = lat
     private var longitude = lon
-    private val timestamp: String
-
-    init {
-        timestamp = ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")
-            .withZone(ZoneOffset.UTC)
-            .format(Instant.now())
-    }
+    private val timestamp = timestamp
 
     fun getFire(map: MapView): Marker {
         // Make a GeoPoint on the map
