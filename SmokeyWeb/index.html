@@ -12,25 +12,33 @@
         integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og=="
         crossorigin=""></script>
 
-    <link rel="stylesheet" href="css/main.css" />
-    <!--<script src="scripts/index.js"></script>-->
-
     <!-- Map setup stuff -->
     <script>
-        // Globals
         var map;
+        var markers;
 
-        var fireIcon = L.icon({iconUrl: "/img/fire.png", iconSize: [24, 24], iconAnchor: [12, 24], popupAnchor: [0, -24], className: "fireMarker"});
+        function getLocation()
+        {
+            if (navigator.geolocation)
+            {
+                navigator.geolocation.getCurrentPosition(showPosition);
+            }
+            else
+            {
+                console.log("Geolocation is not supported by this browser.")
+            }
+        }
 
-        // Constants for map control
-        const minIconSize = 12;
-        const maxIconSize = 24;
-        const minZoom = 5;
+        function showPosition(position)
+        {
+            var pos = L.latLng(position.coords.latitude, position.coords.longitude)
+            map.setView(pos, 15.0)
+        }
 
         function startMap()
         {
-            map = L.map('map').setView([35, -94.3], 5);
-            map.setMinZoom(minZoom)
+            // Set the default map up
+            map = L.map('map').setView([35, -94.3], 5)
 
             // Add tile engine
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -38,11 +46,21 @@
             }).addTo(map);
         }
 
+        function setup()
+        {
+            startMap()
+            getFireReports()
+            getLocation()
+        }
+    </script>
+
+    <!-- Fire Report retrieval stuff -->
+    <script>
         function getFireReports()
         {
             $.ajax({
                 type: "POST",
-                url: '/php/get_all_reports.php',
+                url: 'php/get_all_reports.php',
                 success: function(data)
                 {
                     populateMap(data)
@@ -73,6 +91,7 @@
                 map.setView(fireLocation, 15.0)
 
                 // Create a marker object and add the image
+                var fireIcon = L.icon({iconUrl: "img/fire.png", iconSize: [48, 48], iconAnchor: [24, 48], popupAnchor: [0, -48]});
                 var fireMarker = L.marker(fireLocation, {icon: fireIcon});
 
                 // Add a popup to the marker
@@ -82,13 +101,8 @@
                 fireMarker.addTo(map)
             });
         }
-
-        function setup()
-        {
-            startMap()
-            getFireReports()
-        }
     </script>
+
 
 </head>
 
