@@ -80,8 +80,13 @@ class OverviewFragment : Fragment() {
                     pageViewModel.updateMap(true)
                 },
                 com.android.volley.Response.ErrorListener {
-                    e("RESPONSE", it?.message)
-                    val errorText = "Failed to report fire: %s".format(it.message)
+                    var errorText = "Failed to report fire."
+                    if(it.message != null)
+                    {
+                        e("RESPONSE", it.message)
+                        errorText = "Failed to report fire: %s".format(it.message)
+                    }
+
                     Snackbar.make(view, errorText, Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show()
                 }
