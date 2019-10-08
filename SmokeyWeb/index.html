@@ -20,14 +20,14 @@
         // Globals
         var map;
 
-        var fireIcon = L.icon({iconUrl: "/img/fire.png", className: "fireMarker"}); //iconSize: [48, 48], iconAnchor: [24, 48], popupAnchor: [0, -48],
+        var fireIcon = L.icon({iconUrl: "/img/fire.png", iconSize: [24, 24], iconAnchor: [12, 24], popupAnchor: [0, -24], className: "fireMarker"});
 
         function startMap()
         {
             map = L.map('map').setView([35, -94.3], 5);
 
             map.on('zoomend', function(){
-                var newZoom = '' + (3*(map.getZoom())) +'px';
+                var newZoom = '' + (2*(map.getZoom())) +'px';
                 $('#map .fireMarker').css({'width':newZoom,'height':newZoom});// 'margins.left':newZoom/2, 'margins.top': newZoom});
             })
 
