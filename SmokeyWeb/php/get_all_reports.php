@@ -1,24 +1,31 @@
 <?php
-    // Connect to the database
-    require_once("db_connect.php");
-
-    // Form a query to get all the fire reports
-    $query = "SELECT * FROM fire_reports";
-
-    // Attempt to get the reports
-    try
+    function getAllReports()
     {
-        $reports = $pdo->query($query);
-    }
-    // Couldn't get the reports, so print an error
-    catch(PDOException $e)
-    {
-        // Print error
-        printf("%s\n", $e->getMessage());
+        // Connect to the database
+        require_once("db_connect.php");
 
-        // Exit
-        exit();
+        // Form a query to get all the fire reports
+        $query = "SELECT * FROM fire_reports";
+
+        // Attempt to get the reports
+        try
+        {
+            $reports = $pdo->query($query);
+        }
+        // Couldn't get the reports, so print an error
+        catch(PDOException $e)
+        {
+            // Print error
+            printf("%s\n", $e->getMessage());
+
+            // Exit
+            exit();
+        }
+
+        return $reports;
     }
+
+    $reports = getAllReports();
 
     // Set up a list to put the reports into
     $reports_list = [];
