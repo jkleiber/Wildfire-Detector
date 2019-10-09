@@ -95,9 +95,11 @@ class SettingsActivity : AppCompatActivity() {
 
     // This code is for GATT connection of the the bluetooth device
     suspend fun BluetoothDevice.logGattServices(tag: String = "BleGattCoroutines") {
+        d("LOL", "am i even here")
         val deviceConnection = GattConnection(bluetoothDevice = this@logGattServices)
         try {
             deviceConnection.connect() // Suspends until connection is established
+
             val gattServices = deviceConnection.discoverServices() // Suspends until completed
             gattServices.forEach {
                 btGattServ.add(it)
@@ -106,7 +108,7 @@ class SettingsActivity : AppCompatActivity() {
                         deviceConnection.readCharacteristic(it) // Suspends until characteristic is read
 
                     } catch (e: Exception) {
-                        Log.e(tag, "Couldn't read characteristic with uuid: ${it.uuid}", e)
+                        e(tag, "Couldn't read characteristic with uuid: ${it.uuid}", e)
                     }
                 }
             }
@@ -133,6 +135,7 @@ class SettingsActivity : AppCompatActivity() {
                 if(btDevices.isEmpty())
                 {
                     // Notify no
+                    onStop()
                     Toast.makeText(this, "No Buetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -149,33 +152,35 @@ class SettingsActivity : AppCompatActivity() {
 
             d("LOL", "Gatt begin")
 
-            var bluetoothGatt: BluetoothGatt? = null
+            var server: BluetoothGatt? = null
             // implement gattCallback
-            bluetoothGatt = clickedDevice.connectGatt(this, false, BluetoothLeService().gattCallback)
+            server = clickedDevice.connectGatt(this, false, BluetoothLeService().gattCallback)
 
-            // TODO: actually use bluetoothGatt
-            var rssi = bluetoothGatt.readRemoteRssi()
 
-            d("LOL", "RSSI: $rssi")
+            bluetoothLeScanner.stopScan(bleScanner)
+
+            server.discoverServices()
+
         }
     }
 
     override fun onStart() {
         d("DeviceListActivity", "onStart()")
         super.onStart()
-
+        d("LOL", "onStart")
         bluetoothLeScanner.startScan(bleScanner)
 
     }
 
     override fun onResume() {
         super.onResume()
-
+        d("LOL", "onResume")
         registerReceiver(gattUpdateReceiver, makeGattIntentFilter())
     }
 
     override fun onPause() {
         super.onPause()
+        d("LOL", "onPause")
 
         unregisterReceiver(gattUpdateReceiver)
     }
@@ -187,9 +192,8 @@ class SettingsActivity : AppCompatActivity() {
             return Binder()
         }
 
-        val TAG = "BLE GATT"
-        val UUID_HEART_RATE_MEASUREMENT =  UUID.randomUUID()
 
+        val TAG = "BLE GATT"
         // BLE GATT services
         private val STATE_DISCONNECTED = 0
         private val STATE_CONNECTING = 1
@@ -201,12 +205,17 @@ class SettingsActivity : AppCompatActivity() {
         val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
         val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
 
+
         private fun broadcastUpdate(action: String) {
-            val intent = Intent(action)
+            d("BLE GATT", "action $action")
+            val intent = Intent(this,  SettingsActivity::class.java)
+            intent.addCategory(Intent.CATEGORY_DEFAULT)
+            intent.action = action
             sendBroadcast(intent)
         }
 
         private fun broadcastUpdate(action: String, characteristic: BluetoothGattCharacteristic) {
+            i(TAG, "broadcastUpdate")
             val intent = Intent(action)
             // parsing is carried out as per profile specifications.
             // For all profiles writes the data formatted in HEX.
@@ -230,9 +239,12 @@ class SettingsActivity : AppCompatActivity() {
                 status: Int,
                 newState: Int
             ) {
-                val intentAction: String
+                i(TAG, "onConnectionStateChange newState: $newState")
+                i(TAG, "STATE_CONNECTED is: $STATE_CONNECTED")
+                var intentAction: String = "YOLO"
                 when (newState) {
-                    BluetoothProfile.STATE_CONNECTED -> {
+                    STATE_CONNECTED -> {
+                        d(TAG, "inside STATE_CONNECTED block")
                         intentAction = ACTION_GATT_CONNECTED
                         connectionState = STATE_CONNECTED
                         broadcastUpdate(intentAction)
@@ -240,17 +252,27 @@ class SettingsActivity : AppCompatActivity() {
                         i(TAG, "Attempting to start service discovery: " +
                                 gatt?.discoverServices())
                     }
-                    BluetoothProfile.STATE_DISCONNECTED -> {
+                    STATE_DISCONNECTED -> {
+                        d(TAG, "inside STATE_DISCONNECTED block")
                         intentAction = ACTION_GATT_DISCONNECTED
                         connectionState = STATE_DISCONNECTED
                         i(TAG, "Disconnected from GATT server.")
                         broadcastUpdate(intentAction)
                     }
+                    else -> {
+                        d(TAG, "newState in else: $newState")
+                    }
                 }
+                d(TAG, "newState after when block: $newState")
             }
 
             // New services discovered
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                // no idea hope this somehow helps me
+                var clickedDeviceUuidString = gatt.device.uuids[0].toString()
+                var clickedDeviceUuid: UUID = UUID.fromString(clickedDeviceUuidString)
+                val service = gatt.getService(clickedDeviceUuid)
+                i(TAG, "onServicesDiscovered received: $service")
                 when (status) {
                     BluetoothGatt.GATT_SUCCESS -> broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED)
                     else -> w(TAG, "onServicesDiscovered received: $status")
@@ -263,9 +285,11 @@ class SettingsActivity : AppCompatActivity() {
                 characteristic: BluetoothGattCharacteristic,
                 status: Int
             ) {
+                i(TAG, "onCharacteristicRead")
                 when (status) {
                     BluetoothGatt.GATT_SUCCESS -> {
                         broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic)
+                        i(TAG, "onCharacteristicRead")
                     }
                 }
             }
@@ -311,10 +335,10 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
     override fun onStop() {
+        d("LOL", "Stopped the scan")
         bluetoothLeScanner.stopScan(bleScanner)
         super.onStop()
     }
-
 
 
     /**
@@ -401,24 +425,29 @@ class SettingsActivity : AppCompatActivity() {
         private lateinit var bluetoothLeService: BluetoothLeService
 
         override fun onReceive(context: Context, intent: Intent) {
+            d("BLE GATT", "gattUpdateReceiver onReceive")
             val action = intent.action
             when (action){
                 ACTION_GATT_CONNECTED -> {
+                    d("BLE GATT", "ACTION_GATT_CONNECTED")
                     //connected = true
                     //updateConnectionState(R.string.connected)
                     (context as? Activity)?.invalidateOptionsMenu()
                 }
                 ACTION_GATT_DISCONNECTED -> {
+                    d("BLE GATT", "ACTION_GATT_DISCONNECTED")
                     //connected = false
                     //updateConnectionState(R.string.disconnected)
                     (context as? Activity)?.invalidateOptionsMenu()
                     //clearUI()
                 }
                 ACTION_GATT_SERVICES_DISCOVERED -> {
+                    d("BLE GATT", "ACTION_GATT_SERVICES_DISCOVERED")
                     // Show all the supported services and characteristics on the
                     // user interface.
                 }
                 ACTION_DATA_AVAILABLE -> {
+                    d("BLE GATT", "ACTION_DATA_AVAILABLE")
                     //displayData(intent.getStringExtra(BluetoothLeService.EXTRA_DATA))
                 }
             }
