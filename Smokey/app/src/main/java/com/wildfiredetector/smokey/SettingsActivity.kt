@@ -156,7 +156,6 @@ class SettingsActivity : AppCompatActivity() {
             // implement gattCallback
             server = clickedDevice.connectGatt(this, false, BluetoothLeService().gattCallback)
 
-
             bluetoothLeScanner.stopScan(bleScanner)
 
             server.discoverServices()
@@ -191,7 +190,6 @@ class SettingsActivity : AppCompatActivity() {
             w("LMAO", "onBind called from Bluetooth LE service")
             return Binder()
         }
-
 
         val TAG = "BLE GATT"
         // BLE GATT services
