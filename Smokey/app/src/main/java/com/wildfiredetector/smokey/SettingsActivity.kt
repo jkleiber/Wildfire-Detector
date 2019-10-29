@@ -5,6 +5,7 @@ import android.app.Service
 import android.bluetooth.*
 import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
 import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
+import android.bluetooth.BluetoothDevice.TRANSPORT_LE
 import android.bluetooth.BluetoothGatt.STATE_CONNECTED
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -17,6 +18,7 @@ import android.content.pm.PackageManager
 import android.nfc.NfcAdapter.EXTRA_DATA
 import android.os.Binder
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
 import android.util.Log
 import android.util.Log.*
@@ -134,12 +136,11 @@ class SettingsActivity : AppCompatActivity() {
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
-            d("BLEGATT", "Gatt begin")
-
             // implement gattCallback
-            clickedDevice.connectGatt(this, true, gattCallback)
+            clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
 
 //            bluetoothLeScanner.stopScan(bleScanner)
+            d("BLEGATT", "After connectGatt")
 
         }
     }
@@ -150,20 +151,23 @@ class SettingsActivity : AppCompatActivity() {
             d(TAG, "This is the: $newState")
             if (newState == BluetoothGatt.STATE_CONNECTED)
             {
-                d(TAG, "OnConnectionStateChange")
-
                 val mtu = gatt?.requestMtu(256)
                 val discovered = gatt?.discoverServices()
                 d(TAG, "Discovered: $discovered mtu: $mtu")
 
-                onServicesDiscovered(gatt, newState)
                 d(TAG, "After onServiceDiscovered call in onConnectionStateChange")
             }
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            val gattService: String = "00110011-4455-6677-8899-AABBCCDDEEFA"
-            val gattChar: String = "00000000-0000-0000-0000-000000000002"
+            val gattService: String = "00110011-4455-6677-8899-AABBCCDDEEFF"
+            val gattChar: String = "00110002-4455-6677-8899-AABBCCDDEEFF"
+
+            val listGattService = gatt?.services
+            d(TAG, "Are there any gattServices: $listGattService")
+            listGattService?.forEach {
+                d(TAG, "gatt Services are: $it")
+            }
 
             d(TAG, "OnServicesDiscovered: status is: $status")
             val gattServiceUUID = UUID.fromString(gattService)
@@ -172,7 +176,7 @@ class SettingsActivity : AppCompatActivity() {
             d(TAG, "gattCharUUID: $gattCharUUID")
 
             val gattServiceExists = gatt?.getService(UUID.fromString(gattService))
-            d(TAG, "gattService: $gattService")
+            d(TAG, "gattService: $gattServiceExists")
 
             val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
                 ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific charactersistcs
