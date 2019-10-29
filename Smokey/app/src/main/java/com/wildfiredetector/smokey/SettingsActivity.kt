@@ -92,6 +92,7 @@ class SettingsActivity : AppCompatActivity() {
             val bluetoothAdapter = bluetoothManager.adapter
             return bluetoothAdapter.bluetoothLeScanner
         }
+    
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,8 +147,8 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            val characteristic = gatt?.getService(UUID.fromString("0x180F")) // this should be whatever we decide to have. In the example code they have expandUuid
-                ?.getCharacteristic(UUID.fromString("0x2A19")) // This is the specific charactersistcs
+            val characteristic = gatt?.getService(UUID.fromString("180F")) // this should be whatever we decide to have. In the example code they have expandUuid
+                ?.getCharacteristic(UUID.fromString("2A19")) // This is the specific charactersistcs
             gatt?.readCharacteristic(characteristic)
             gatt?.setCharacteristicNotification(characteristic, true)
             characteristic?.value = byteArrayOf(50)
@@ -174,7 +175,6 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
     }
-
 
     /**
      * Permissions
