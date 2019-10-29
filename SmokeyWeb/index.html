@@ -32,13 +32,15 @@
         function showPosition(position)
         {
             var pos = L.latLng(position.coords.latitude, position.coords.longitude)
-            map.setView(pos, 15.0)
+            map.setView(pos, 18.0)
         }
 
         function startMap()
         {
             // Set the default map up
             map = L.map('map').setView([35, -94.3], 5)
+
+            map.setMinZoom(5)
 
             // Add tile engine
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -50,6 +52,7 @@
         {
             startMap()
             getFireReports()
+            getActiveFires()
             getLocation()
         }
     </script>
@@ -64,6 +67,22 @@
                 success: function(data)
                 {
                     populateMap(data)
+                },
+                error: function()
+                {
+                    console.log('AJAX fail')
+                }
+            });
+        }
+
+        function getActiveFires()
+        {
+            $.ajax({
+                type: "POST",
+                url: 'php/get_active_fires.php',
+                success: function(data)
+                {
+                    showActiveFires(data)
                 },
                 error: function()
                 {
@@ -91,7 +110,7 @@
                 map.setView(fireLocation, 15.0)
 
                 // Create a marker object and add the image
-                var fireIcon = L.icon({iconUrl: "img/fire.png", iconSize: [48, 48], iconAnchor: [24, 48], popupAnchor: [0, -48]});
+                var fireIcon = L.icon({iconUrl: "/img/fire.png", iconSize: [24, 24], iconAnchor: [12, 24], popupAnchor: [0, -24], className: "fireMarker"});
                 var fireMarker = L.marker(fireLocation, {icon: fireIcon});
 
                 // Add a popup to the marker
@@ -99,6 +118,20 @@
 
                 // Add the marker to the map
                 fireMarker.addTo(map)
+            });
+        }
+
+        function showActiveFires(fires)
+        {
+            activeFires = JSON.parse(fires)
+
+            activeFires.forEach(function (fireZone)
+            {
+                zone_json = JSON.parse(fireZone)
+
+                var points = zone_json.points
+
+                var polygon = L.polygon(points, {color: 'red'}).addTo(map);
             });
         }
     </script>
