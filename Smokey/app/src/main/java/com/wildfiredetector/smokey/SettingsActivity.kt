@@ -120,17 +120,16 @@ class SettingsActivity : AppCompatActivity() {
         }
         // When a bt device is clicked on the view get the device info
         bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
-            d("LOL", "This is reached")
 
             // Get the device
             val clickedDevice: BluetoothDevice = btDevices[id.toInt()]
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
-            d("LOL", "Gatt begin")
+            d("BLE GAAT", "Gatt begin")
 
             // implement gattCallback
-            clickedDevice.connectGatt(this, false, gattCallback)
+            clickedDevice.connectGatt(this, true, gattCallback)
 
             bluetoothLeScanner.stopScan(bleScanner)
 
@@ -160,7 +159,9 @@ class SettingsActivity : AppCompatActivity() {
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
-            Log.d("BLE Activity", "onCaracteristicRead")
+            val readFire = characteristic!!.value[0].toInt()
+            Log.d("BLE GAAT", "onCaracteristicRead")
+            Log.d("BLE GAAT", "$readFire")
         }
 
         override fun onCharacteristicChanged(
@@ -169,7 +170,7 @@ class SettingsActivity : AppCompatActivity() {
         ) {
             characteristic?.let {
                 val readFire = characteristic.value[0].toInt()
-                Log.d("BLE Activity", "Fire flag is: $readFire")
+                Log.d("BLE GAAT", "Fire flag is: $readFire")
             }
         }
     }
