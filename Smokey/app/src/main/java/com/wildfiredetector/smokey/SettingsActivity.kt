@@ -27,6 +27,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.beepiz.bluetooth.gattcoroutines.GattConnection
+import com.beepiz.bluetooth.gattcoroutines.extensions.get
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.settings_activity.*
 import java.util.*
@@ -151,9 +152,13 @@ class SettingsActivity : AppCompatActivity() {
             d(TAG, "This is the: $newState")
             if (newState == BluetoothGatt.STATE_CONNECTED)
             {
-                val mtu = gatt?.requestMtu(256)
-                val discovered = gatt?.discoverServices()
-                d(TAG, "Discovered: $discovered mtu: $mtu")
+                var i = 10
+                while(i > 0)
+                {
+                    gatt?.discoverServices()
+                    gatt?.requestMtu(256)
+                    i--
+                }
 
                 d(TAG, "After onServiceDiscovered call in onConnectionStateChange")
             }
@@ -161,28 +166,24 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             val gattService: String = "00110011-4455-6677-8899-AABBCCDDEEFF"
-            val gattChar: String = "00110002-4455-6677-8899-AABBCCDDEEFF"
+            val gattChar: String = "00000002-0000-1000-8000-00805f9b34fb"
 
-            val listGattService = gatt?.services
-            d(TAG, "Are there any gattServices: $listGattService")
-            listGattService?.forEach {
-                d(TAG, "gatt Services are: $it")
-            }
 
-            d(TAG, "OnServicesDiscovered: status is: $status")
             val gattServiceUUID = UUID.fromString(gattService)
-            d(TAG, "gattServiceUUID: $gattServiceUUID")
             val gattCharUUID =  UUID.fromString(gattChar)// this should be whatever we decide to have. In the example code they have expandUuid
-            d(TAG, "gattCharUUID: $gattCharUUID")
 
             val gattServiceExists = gatt?.getService(UUID.fromString(gattService))
-            d(TAG, "gattService: $gattServiceExists")
 
-            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
-                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific charactersistcs
-            d(TAG, "Right before read method in onServiceDiscovered")
+            val listGattChar = gattServiceExists?.characteristics
+            val characteristic = listGattChar?.get(0)
+
+//            TODO()
+            // Figure out why I can't get the specific UUID doing a very sketch method of getting the onlyl characteristic in the list
+//            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
+//                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific charactersistcs
+//            d(TAG, "Right before read method in onServiceDiscovered")
             gatt?.readCharacteristic(characteristic)
-//            gatt?.setCharacteristicNotification(characteristic, true)
+            gatt?.setCharacteristicNotification(characteristic, true)
             d(TAG, "Right after read method in onServiceDiscovered")
 //            characteristic?.value = byteArrayOf(50)
         }
@@ -192,9 +193,8 @@ class SettingsActivity : AppCompatActivity() {
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
-            val readFire = characteristic!!.value[0].toInt()
-            Log.d(TAG, "onCaracteristicRead")
-            Log.d(TAG, "$readFire")
+            val readFire = characteristic!!.value.toString()
+            Log.d(TAG, "reading in value: $readFire")
         }
 
         override fun onCharacteristicChanged(
