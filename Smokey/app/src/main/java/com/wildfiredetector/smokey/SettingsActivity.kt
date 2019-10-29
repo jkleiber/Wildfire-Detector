@@ -5,6 +5,7 @@ import android.app.Service
 import android.bluetooth.*
 import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
 import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
+import android.bluetooth.BluetoothGatt.STATE_CONNECTED
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
@@ -93,30 +94,6 @@ class SettingsActivity : AppCompatActivity() {
         }
 
 
-    // This code is for GATT connection of the the bluetooth device
-    suspend fun BluetoothDevice.logGattServices(tag: String = "BleGattCoroutines") {
-        d("LOL", "am i even here")
-        val deviceConnection = GattConnection(bluetoothDevice = this@logGattServices)
-        try {
-            deviceConnection.connect() // Suspends until connection is established
-
-            val gattServices = deviceConnection.discoverServices() // Suspends until completed
-            gattServices.forEach {
-                btGattServ.add(it)
-                it.characteristics.forEach {
-                    try {
-                        deviceConnection.readCharacteristic(it) // Suspends until characteristic is read
-
-                    } catch (e: Exception) {
-                        e(tag, "Couldn't read characteristic with uuid: ${it.uuid}", e)
-                    }
-                }
-            }
-        } finally {
-            deviceConnection.close() // Close when no longer used. Also triggers disconnect by default.
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         d("DeviceListActivity", "onCreate()")
         super.onCreate(savedInstanceState)
@@ -152,190 +129,49 @@ class SettingsActivity : AppCompatActivity() {
 
             d("LOL", "Gatt begin")
 
-            var server: BluetoothGatt? = null
             // implement gattCallback
-            server = clickedDevice.connectGatt(this, false, BluetoothLeService().gattCallback)
+            clickedDevice.connectGatt(this, false, gattCallback)
 
             bluetoothLeScanner.stopScan(bleScanner)
 
-            server.discoverServices()
-
         }
     }
 
-    override fun onStart() {
-        d("DeviceListActivity", "onStart()")
-        super.onStart()
-        d("LOL", "onStart")
-        bluetoothLeScanner.startScan(bleScanner)
-
-    }
-
-    override fun onResume() {
-        super.onResume()
-        d("LOL", "onResume")
-        registerReceiver(gattUpdateReceiver, makeGattIntentFilter())
-    }
-
-    override fun onPause() {
-        super.onPause()
-        d("LOL", "onPause")
-
-        unregisterReceiver(gattUpdateReceiver)
-    }
-
-    // A service that interacts with the BLE device via the Android BLE API.
-    class BluetoothLeService : Service() {
-        override fun onBind(p0: Intent?): IBinder? {
-            w("LMAO", "onBind called from Bluetooth LE service")
-            return Binder()
-        }
-
-        val TAG = "BLE GATT"
-        // BLE GATT services
-        private val STATE_DISCONNECTED = 0
-        private val STATE_CONNECTING = 1
-        private val STATE_CONNECTED = 2
-        val ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED"
-        val ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED"
-        val ACTION_GATT_SERVICES_DISCOVERED =
-            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
-        val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
-        val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
-
-
-        private fun broadcastUpdate(action: String) {
-            d("BLE GATT", "action $action")
-            val intent = Intent(this,  SettingsActivity::class.java)
-            intent.addCategory(Intent.CATEGORY_DEFAULT)
-            intent.action = action
-            sendBroadcast(intent)
-        }
-
-        private fun broadcastUpdate(action: String, characteristic: BluetoothGattCharacteristic) {
-            i(TAG, "broadcastUpdate")
-            val intent = Intent(action)
-            // parsing is carried out as per profile specifications.
-            // For all profiles writes the data formatted in HEX.
-            val data: ByteArray? = characteristic.value
-            if (data?.isNotEmpty() == true) {
-                val hexString: String = data.joinToString(separator = " ") {
-                    String.format("%02X", it)
-                }
-                intent.putExtra(EXTRA_DATA, "$data\n$hexString")
-            }
-
-            sendBroadcast(intent)
-        }
-
-        private var connectionState = STATE_DISCONNECTED
-
-        // Various callback methods defined by the BLE API.
-        val gattCallback = object : BluetoothGattCallback() {
-            override fun onConnectionStateChange(
-                gatt: BluetoothGatt,
-                status: Int,
-                newState: Int
-            ) {
-                i(TAG, "onConnectionStateChange newState: $newState")
-                i(TAG, "STATE_CONNECTED is: $STATE_CONNECTED")
-                var intentAction: String = "YOLO"
-                when (newState) {
-                    STATE_CONNECTED -> {
-                        d(TAG, "inside STATE_CONNECTED block")
-                        intentAction = ACTION_GATT_CONNECTED
-                        connectionState = STATE_CONNECTED
-                        broadcastUpdate(intentAction)
-                        i(TAG, "Connected to GATT server.")
-                        i(TAG, "Attempting to start service discovery: " +
-                                gatt?.discoverServices())
-                    }
-                    STATE_DISCONNECTED -> {
-                        d(TAG, "inside STATE_DISCONNECTED block")
-                        intentAction = ACTION_GATT_DISCONNECTED
-                        connectionState = STATE_DISCONNECTED
-                        i(TAG, "Disconnected from GATT server.")
-                        broadcastUpdate(intentAction)
-                    }
-                    else -> {
-                        d(TAG, "newState in else: $newState")
-                    }
-                }
-                d(TAG, "newState after when block: $newState")
-            }
-
-            // New services discovered
-            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                // no idea hope this somehow helps me
-                var clickedDeviceUuidString = gatt.device.uuids[0].toString()
-                var clickedDeviceUuid: UUID = UUID.fromString(clickedDeviceUuidString)
-                val service = gatt.getService(clickedDeviceUuid)
-                i(TAG, "onServicesDiscovered received: $service")
-                when (status) {
-                    BluetoothGatt.GATT_SUCCESS -> broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED)
-                    else -> w(TAG, "onServicesDiscovered received: $status")
-                }
-            }
-
-            // Result of a characteristic read operation
-            override fun onCharacteristicRead(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                status: Int
-            ) {
-                i(TAG, "onCharacteristicRead")
-                when (status) {
-                    BluetoothGatt.GATT_SUCCESS -> {
-                        broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic)
-                        i(TAG, "onCharacteristicRead")
-                    }
-                }
-            }
-
-            override fun onCharacteristicWrite(
-                gatt: BluetoothGatt?,
-                characteristic: BluetoothGattCharacteristic?,
-                status: Int
-            ) {
-                super.onCharacteristicWrite(gatt, characteristic, status)
-                i(TAG, "onCharacteristicWrite")
-            }
-
-            override fun onCharacteristicChanged(
-                gatt: BluetoothGatt?,
-                characteristic: BluetoothGattCharacteristic?
-            ) {
-                super.onCharacteristicChanged(gatt, characteristic)
-                i(TAG, "onCharacteristicChanged")
-                // Here you can read the characteristc's value
-                // hopefully this is what someting I can use
-                val temp = characteristic?.value
-                i(TAG, "ByteArray sent: $temp")
-            }
-
-            override fun onDescriptorRead(
-                gatt: BluetoothGatt?,
-                descriptor: BluetoothGattDescriptor?,
-                status: Int
-            ) {
-                super.onDescriptorRead(gatt, descriptor, status)
-                i(TAG, "onDescriptorRead")
-            }
-
-            override fun onDescriptorWrite(
-                gatt: BluetoothGatt?,
-                descriptor: BluetoothGattDescriptor?,
-                status: Int
-            ) {
-                super.onDescriptorWrite(gatt, descriptor, status)
-                i(TAG, "onDescriptorWrite")
+    private val gattCallback = object : BluetoothGattCallback() {
+        override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
+            if (newState == BluetoothGatt.STATE_CONNECTED)
+            {
+                gatt?.requestMtu(256)
+                gatt?.discoverServices()
             }
         }
-    }
-    override fun onStop() {
-        d("LOL", "Stopped the scan")
-        bluetoothLeScanner.stopScan(bleScanner)
-        super.onStop()
+
+        override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
+            val characteristic = gatt?.getService(UUID.fromString("0x180F")) // this should be whatever we decide to have. In the example code they have expandUuid
+                ?.getCharacteristic(UUID.fromString("0x2A19")) // This is the specific charactersistcs
+            gatt?.readCharacteristic(characteristic)
+            gatt?.setCharacteristicNotification(characteristic, true)
+            characteristic?.value = byteArrayOf(50)
+
+        }
+
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            Log.d("BLE Activity", "onCaracteristicRead")
+        }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            characteristic?.let {
+                val readFire = characteristic.value[0].toInt()
+                Log.d("BLE Activity", "Fire flag is: $readFire")
+            }
+        }
     }
 
 
@@ -411,45 +247,6 @@ class SettingsActivity : AppCompatActivity() {
         intentFilter.addAction(ACTION_GATT_SERVICES_DISCOVERED)
 
         return intentFilter
-    }
-    // Handles various events fired by the Service.
-// ACTION_GATT_CONNECTED: connected to a GATT server.
-// ACTION_GATT_DISCONNECTED: disconnected from a GATT server.
-// ACTION_GATT_SERVICES_DISCOVERED: discovered GATT services.
-// ACTION_DATA_AVAILABLE: received data from the device. This can be a
-// result of read or notification operations.
-    private val gattUpdateReceiver = object : BroadcastReceiver() {
-
-        private lateinit var bluetoothLeService: BluetoothLeService
-
-        override fun onReceive(context: Context, intent: Intent) {
-            d("BLE GATT", "gattUpdateReceiver onReceive")
-            val action = intent.action
-            when (action){
-                ACTION_GATT_CONNECTED -> {
-                    d("BLE GATT", "ACTION_GATT_CONNECTED")
-                    //connected = true
-                    //updateConnectionState(R.string.connected)
-                    (context as? Activity)?.invalidateOptionsMenu()
-                }
-                ACTION_GATT_DISCONNECTED -> {
-                    d("BLE GATT", "ACTION_GATT_DISCONNECTED")
-                    //connected = false
-                    //updateConnectionState(R.string.disconnected)
-                    (context as? Activity)?.invalidateOptionsMenu()
-                    //clearUI()
-                }
-                ACTION_GATT_SERVICES_DISCOVERED -> {
-                    d("BLE GATT", "ACTION_GATT_SERVICES_DISCOVERED")
-                    // Show all the supported services and characteristics on the
-                    // user interface.
-                }
-                ACTION_DATA_AVAILABLE -> {
-                    d("BLE GATT", "ACTION_DATA_AVAILABLE")
-                    //displayData(intent.getStringExtra(BluetoothLeService.EXTRA_DATA))
-                }
-            }
-        }
     }
 }
 
