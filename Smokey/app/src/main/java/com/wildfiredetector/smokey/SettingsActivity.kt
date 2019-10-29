@@ -92,7 +92,14 @@ class SettingsActivity : AppCompatActivity() {
             val bluetoothAdapter = bluetoothManager.adapter
             return bluetoothAdapter.bluetoothLeScanner
         }
-    
+
+    override fun onStart() {
+        d("DeviceListActivity", "onStart()")
+        super.onStart()
+        d("BLEGAAT", "onStart")
+        bluetoothLeScanner.startScan(bleScanner)
+
+    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -127,32 +134,53 @@ class SettingsActivity : AppCompatActivity() {
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
-            d("BLE GAAT", "Gatt begin")
+            d("BLEGATT", "Gatt begin")
 
             // implement gattCallback
             clickedDevice.connectGatt(this, true, gattCallback)
 
-            bluetoothLeScanner.stopScan(bleScanner)
+//            bluetoothLeScanner.stopScan(bleScanner)
 
         }
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
+        val TAG: String = "BLEGATT"
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
+            d(TAG, "This is the: $newState")
             if (newState == BluetoothGatt.STATE_CONNECTED)
             {
-                gatt?.requestMtu(256)
-                gatt?.discoverServices()
+                d(TAG, "OnConnectionStateChange")
+
+                val mtu = gatt?.requestMtu(256)
+                val discovered = gatt?.discoverServices()
+                d(TAG, "Discovered: $discovered mtu: $mtu")
+
+                onServicesDiscovered(gatt, newState)
+                d(TAG, "After onServiceDiscovered call in onConnectionStateChange")
             }
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            val characteristic = gatt?.getService(UUID.fromString("180F")) // this should be whatever we decide to have. In the example code they have expandUuid
-                ?.getCharacteristic(UUID.fromString("2A19")) // This is the specific charactersistcs
-            gatt?.readCharacteristic(characteristic)
-            gatt?.setCharacteristicNotification(characteristic, true)
-            characteristic?.value = byteArrayOf(50)
+            val gattService: String = "00110011-4455-6677-8899-AABBCCDDEEFA"
+            val gattChar: String = "00000000-0000-0000-0000-000000000002"
 
+            d(TAG, "OnServicesDiscovered: status is: $status")
+            val gattServiceUUID = UUID.fromString(gattService)
+            d(TAG, "gattServiceUUID: $gattServiceUUID")
+            val gattCharUUID =  UUID.fromString(gattChar)// this should be whatever we decide to have. In the example code they have expandUuid
+            d(TAG, "gattCharUUID: $gattCharUUID")
+
+            val gattServiceExists = gatt?.getService(UUID.fromString(gattService))
+            d(TAG, "gattService: $gattService")
+
+            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
+                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific charactersistcs
+            d(TAG, "Right before read method in onServiceDiscovered")
+            gatt?.readCharacteristic(characteristic)
+//            gatt?.setCharacteristicNotification(characteristic, true)
+            d(TAG, "Right after read method in onServiceDiscovered")
+//            characteristic?.value = byteArrayOf(50)
         }
 
         override fun onCharacteristicRead(
@@ -161,8 +189,8 @@ class SettingsActivity : AppCompatActivity() {
             status: Int
         ) {
             val readFire = characteristic!!.value[0].toInt()
-            Log.d("BLE GAAT", "onCaracteristicRead")
-            Log.d("BLE GAAT", "$readFire")
+            Log.d(TAG, "onCaracteristicRead")
+            Log.d(TAG, "$readFire")
         }
 
         override fun onCharacteristicChanged(
@@ -171,7 +199,7 @@ class SettingsActivity : AppCompatActivity() {
         ) {
             characteristic?.let {
                 val readFire = characteristic.value[0].toInt()
-                Log.d("BLE GAAT", "Fire flag is: $readFire")
+                Log.d(TAG, "Fire flag is: $readFire")
             }
         }
     }
