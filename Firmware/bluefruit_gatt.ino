@@ -61,12 +61,13 @@ void detected()
 }
 
 /**************************************************************************/
-/*!
-    @brief Sets up BLE module and signal inputs 
+/*!¬
+    @brief Sets up BLE module and signal inputs·
 */
 /**************************************************************************/
 void setup(void)
 {
+  ble.begin(VERBOSE_MODE);
   if ( FACTORYRESET_ENABLE )
   {
     /* Perform a factory reset to make sure everything is in a known state */
@@ -77,8 +78,9 @@ void setup(void)
 
   ble.println("AT+GATTCLEAR");
   ble.println("AT+GATTADDSERVICE=UUID128=00-11-00-11-44-55-66-77-88-99-AA-BB-CC-DD-EE-FF");
-  ble.println("AT+GATTADDCHAR=UUID=0x0002,PROPERTIES=0x02,MIN_LEN=1,MAX_LEN=4,VALUE=0");
-  
+  ble.println("AT+GATTADDCHAR=UUID=0x0002,PROPERTIES=0x02,MIN_LEN=1,MAX_LEN=1,VALUE=0");
+  ble.println("ATZ");
+
   // Set up digital interrupt
   fire = false;
   pinMode(TEST_LED, OUTPUT);
@@ -90,11 +92,12 @@ void setup(void)
 void loop(void)
 {
   // Testing
-  delay(10000);
+  delay(5000);
   ble.println("AT+GATTCHAR=1,1");
   delay(1000);
   ble.println("AT+GATTCHAR=1,0");
-  
+  ble.waitForOK();
+
   /* Actual logic here
   if(analogRead(FIRE_ANALOG) > 850)
   {
