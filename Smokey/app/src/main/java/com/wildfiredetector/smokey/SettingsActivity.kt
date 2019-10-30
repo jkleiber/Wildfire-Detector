@@ -32,6 +32,7 @@ import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.settings_activity.*
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.experimental.and
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -149,40 +150,32 @@ class SettingsActivity : AppCompatActivity() {
     private val gattCallback = object : BluetoothGattCallback() {
         val TAG: String = "BLEGATT"
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-            d(TAG, "This is the: $newState")
             if (newState == BluetoothGatt.STATE_CONNECTED)
             {
-                var i = 10
-                while(i > 0)
+                // Loop through until it's true
+                while(gatt?.discoverServices() == false)
                 {
-                    gatt?.discoverServices()
-                    gatt?.requestMtu(256)
-                    i--
+                    gatt.discoverServices()
+                    gatt.requestMtu(256)
                 }
-
                 d(TAG, "After onServiceDiscovered call in onConnectionStateChange")
             }
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            val gattService: String = "00110011-4455-6677-8899-AABBCCDDEEFF"
-            val gattChar: String = "00000002-0000-1000-8000-00805f9b34fb"
+            val gattService = "00110011-4455-6677-8899-AABBCCDDEEFF"
+            val gattChar = "00000002-0000-1000-8000-00805f9b34fb"
 
+            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
+                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
 
-            val gattServiceUUID = UUID.fromString(gattService)
-            val gattCharUUID =  UUID.fromString(gattChar)// this should be whatever we decide to have. In the example code they have expandUuid
-
-            val gattServiceExists = gatt?.getService(UUID.fromString(gattService))
-
-            val listGattChar = gattServiceExists?.characteristics
-            val characteristic = listGattChar?.get(0)
-
-//            TODO()
-            // Figure out why I can't get the specific UUID doing a very sketch method of getting the onlyl characteristic in the list
-//            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
-//                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific charactersistcs
-//            d(TAG, "Right before read method in onServiceDiscovered")
+            val descriptorList = characteristic?.descriptors
+            d(TAG, "Descriptor is null?: $descriptorList")
+            descriptorList?.forEach {
+                d(TAG, "Descriptor found: $it")
+            }
             gatt?.readCharacteristic(characteristic)
+            Thread.sleep(1000)
             gatt?.setCharacteristicNotification(characteristic, true)
             d(TAG, "Right after read method in onServiceDiscovered")
 //            characteristic?.value = byteArrayOf(50)
@@ -193,17 +186,21 @@ class SettingsActivity : AppCompatActivity() {
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
-            val readFire = characteristic!!.value.toString()
-            Log.d(TAG, "reading in value: $readFire")
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                val readFire =
+                    characteristic!!.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
+                d(TAG, "reading in value: $readFire")
+            }
         }
 
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt?,
             characteristic: BluetoothGattCharacteristic?
         ) {
+            d(TAG, "in onCharacteristicChanged")
             characteristic?.let {
-                val readFire = characteristic.value[0].toInt()
-                Log.d(TAG, "Fire flag is: $readFire")
+                val readFire = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
+                d(TAG, "Fire flag is: $readFire")
             }
         }
     }
