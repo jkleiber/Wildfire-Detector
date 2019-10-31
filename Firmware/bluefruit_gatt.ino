@@ -78,7 +78,7 @@ void setup(void)
 
   ble.println("AT+GATTCLEAR");
   ble.println("AT+GATTADDSERVICE=UUID128=00-11-00-11-44-55-66-77-88-99-AA-BB-CC-DD-EE-FF");
-  ble.println("AT+GATTADDCHAR=UUID=0x0002,PROPERTIES=0x02,MIN_LEN=1,MAX_LEN=1,VALUE=0");
+  ble.println("AT+GATTADDCHAR=UUID=0x0002,PROPERTIES=0x10,MIN_LEN=1,MAX_LEN=1,VALUE=0");
   ble.println("ATZ");
 
   // Set up digital interrupt
@@ -92,8 +92,9 @@ void setup(void)
 void loop(void)
 {
   // Testing
-  delay(5000);
+  delay(1000);
   ble.println("AT+GATTCHAR=1,1");
+  ble.waitForOK();
   delay(1000);
   ble.println("AT+GATTCHAR=1,0");
   ble.waitForOK();
