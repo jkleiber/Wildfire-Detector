@@ -56,7 +56,6 @@ class SettingsActivity : AppCompatActivity() {
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
 
-    var btGattServ: ArrayList<BluetoothGattService> = ArrayList()
     var btDevices: ArrayList<BluetoothDevice> = ArrayList()
     var btReadableDevices: ArrayList<String> = ArrayList()
 
@@ -79,13 +78,13 @@ class SettingsActivity : AppCompatActivity() {
         // Not sure what this does tbh
         override fun onBatchScanResults(results: MutableList<ScanResult>?) {
             super.onBatchScanResults(results)
-            Log.d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
+            d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
         }
 
         // Error Checking
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            Log.d("DeviceListActivity", "onScanFailed: $errorCode")
+            d("DeviceListActivity", "onScanFailed: $errorCode")
         }
     }
 
@@ -98,11 +97,17 @@ class SettingsActivity : AppCompatActivity() {
         }
 
     override fun onStart() {
-        d("DeviceListActivity", "onStart()")
         super.onStart()
-        d("BLEGAAT", "onStart")
+        d("BLEGATT", "onStart")
         bluetoothLeScanner.startScan(bleScanner)
 
+    }
+
+    override fun onStop()
+    {
+        super.onStop()
+        d("BLEGATT",  "onStop")
+        bluetoothLeScanner.stopScan(bleScanner)
     }
 
 
@@ -138,11 +143,12 @@ class SettingsActivity : AppCompatActivity() {
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
+            // Testing to see if BT device is removed when a device is clicked.
+            btDevices.remove(clickedDevice)
+            updateDeviceList()
+
             // implement gattCallback
             clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
-
-//            bluetoothLeScanner.stopScan(bleScanner)
-            d("BLEGATT", "After connectGatt")
 
         }
     }
@@ -150,35 +156,52 @@ class SettingsActivity : AppCompatActivity() {
     private val gattCallback = object : BluetoothGattCallback() {
         val TAG: String = "BLEGATT"
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-            if (newState == BluetoothGatt.STATE_CONNECTED)
-            {
-                // Loop through until it's true
-                while(gatt?.discoverServices() == false)
-                {
-                    gatt.discoverServices()
-                    gatt.requestMtu(256)
+            // Checks to see if GATT was successful
+            if(status == BluetoothGatt.GATT_SUCCESS) {
+                // checks to see if it actually connects
+                if (newState == BluetoothGatt.STATE_CONNECTED) {
+                    // Loop through until it's true
+                    gatt?.requestMtu(256)
+                    while (gatt?.discoverServices() == false) {
+                        gatt.discoverServices()
+                    }
                 }
-                d(TAG, "After onServiceDiscovered call in onConnectionStateChange")
+                // if the newState is not connected
+                else
+                {
+                    d(TAG, "newState is: $newState")
+                    gatt?.close()
+                }
+            }
+            // if the GATT doesn't succeed
+            else
+            {
+                d(TAG, "status is: $status")
+                gatt?.close()
             }
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             val gattService = "00110011-4455-6677-8899-AABBCCDDEEFF"
             val gattChar = "00000002-0000-1000-8000-00805f9b34fb"
+            val gattDescript = "000002902-0000-1000-8000-00805f9b34fb"
 
             val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
                 ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
+            // gets the descriptor from the characteristic
+            val descriptor = characteristic?.getDescriptor(UUID.fromString(gattDescript))
 
-            val descriptorList = characteristic?.descriptors
-            d(TAG, "Descriptor is null?: $descriptorList")
-            descriptorList?.forEach {
-                d(TAG, "Descriptor found: $it")
-            }
             gatt?.readCharacteristic(characteristic)
-            Thread.sleep(1000)
-            gatt?.setCharacteristicNotification(characteristic, true)
-            d(TAG, "Right after read method in onServiceDiscovered")
-//            characteristic?.value = byteArrayOf(50)
+            // may or may not need the for loop
+            while(gatt?.setCharacteristicNotification(characteristic, true) == false)
+            {
+                d(TAG, "while loop of setCharacteristicNotification")
+                gatt.setCharacteristicNotification(characteristic, true)
+                //Enable notification can also enable Indication if I want to. Notification is faster
+                descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                //Write descriptor callback should be invoked
+                gatt.writeDescriptor(descriptor)
+            }
         }
 
         override fun onCharacteristicRead(
@@ -202,6 +225,15 @@ class SettingsActivity : AppCompatActivity() {
                 val readFire = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
                 d(TAG, "Fire flag is: $readFire")
             }
+        }
+
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt?,
+            descriptor: BluetoothGattDescriptor?,
+            status: Int
+        ) {
+            super.onDescriptorWrite(gatt, descriptor, status)
+            d(TAG, "onDescriptorWrite")
         }
     }
 
@@ -268,16 +300,6 @@ class SettingsActivity : AppCompatActivity() {
         bluetoothDeviceList.adapter = adapter
     }
 
-    private fun makeGattIntentFilter(): IntentFilter
-    {
-        var intentFilter: IntentFilter = IntentFilter()
-        intentFilter.addAction(ACTION_DATA_AVAILABLE)
-        intentFilter.addAction(ACTION_GATT_CONNECTED)
-        intentFilter.addAction(ACTION_GATT_DISCONNECTED)
-        intentFilter.addAction(ACTION_GATT_SERVICES_DISCOVERED)
-
-        return intentFilter
-    }
 }
 
 
