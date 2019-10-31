@@ -173,20 +173,11 @@ class SettingsActivity : AppCompatActivity() {
             val gattDescript = "000002902-0000-1000-8000-00805f9b34fb"
             d(TAG,"inside onServicesDiscovered")
 
-
             val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
                 ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
 
 
-             val descriptor = characteristic?.getDescriptor(UUID.fromString(gattDescript))
-            d(TAG, "Descriptor that I set using 2902 is: $descriptor")
-
-            val descriptor_list = characteristic?.descriptors
-            d(TAG, "Descriptor list is: $descriptor_list")
-
-            descriptor_list?.forEach {
-                d(TAG, "Descriptor is: $it")
-            }
+            val descriptor = characteristic?.getDescriptor(UUID.fromString(gattDescript))
             gatt?.readCharacteristic(characteristic)
 
             d(TAG, "Right before setCharacteristicNotification")
@@ -226,12 +217,7 @@ class SettingsActivity : AppCompatActivity() {
             status: Int
         ) {
             d(TAG, "onDescriptorWrite")
-            val gattService = "00110011-4455-6677-8899-AABBCCDDEEFF"
-            val gattChar = "00000002-0000-1000-8000-00805f9b34fb"
-            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
-                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
-            characteristic?.setValue(byteArrayOf(0x01, 0x01))
-            gatt?.writeCharacteristic(characteristic)
+            super.onDescriptorWrite(gatt, descriptor, status)
         }
     }
 
