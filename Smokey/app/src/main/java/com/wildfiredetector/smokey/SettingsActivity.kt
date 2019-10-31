@@ -129,8 +129,8 @@ class SettingsActivity : AppCompatActivity() {
                 if(btDevices.isEmpty())
                 {
                     // Notify no
-                    onStop()
                     Toast.makeText(this, "No Buetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
+                    onStop()
                 }
             }
 
@@ -144,8 +144,8 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
             // Testing to see if BT device is removed when a device is clicked.
-            btDevices.remove(clickedDevice)
-            updateDeviceList()
+            //btDevices.remove(clickedDevice)
+            //updateDeviceList()
 
             // implement gattCallback
             clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
@@ -156,28 +156,14 @@ class SettingsActivity : AppCompatActivity() {
     private val gattCallback = object : BluetoothGattCallback() {
         val TAG: String = "BLEGATT"
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-            // Checks to see if GATT was successful
-            if(status == BluetoothGatt.GATT_SUCCESS) {
-                // checks to see if it actually connects
-                if (newState == BluetoothGatt.STATE_CONNECTED) {
-                    // Loop through until it's true
-                    gatt?.requestMtu(256)
-                    while (gatt?.discoverServices() == false) {
-                        gatt.discoverServices()
-                    }
-                }
-                // if the newState is not connected
-                else
-                {
-                    d(TAG, "newState is: $newState")
-                    gatt?.close()
-                }
-            }
-            // if the GATT doesn't succeed
-            else
+            d(TAG, "onConnectionStateChange")
+            if (newState == BluetoothGatt.STATE_CONNECTED)
             {
-                d(TAG, "status is: $status")
-                gatt?.close()
+                while(gatt?.discoverServices() == false)
+                {
+                    gatt.discoverServices()
+                    gatt.requestMtu(256)
+                }
             }
         }
 
@@ -185,23 +171,30 @@ class SettingsActivity : AppCompatActivity() {
             val gattService = "00110011-4455-6677-8899-AABBCCDDEEFF"
             val gattChar = "00000002-0000-1000-8000-00805f9b34fb"
             val gattDescript = "000002902-0000-1000-8000-00805f9b34fb"
+            d(TAG,"inside onServicesDiscovered")
+
 
             val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
                 ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
-            // gets the descriptor from the characteristic
-            val descriptor = characteristic?.getDescriptor(UUID.fromString(gattDescript))
 
-            gatt?.readCharacteristic(characteristic)
-            // may or may not need the for loop
-            while(gatt?.setCharacteristicNotification(characteristic, true) == false)
-            {
-                d(TAG, "while loop of setCharacteristicNotification")
-                gatt.setCharacteristicNotification(characteristic, true)
-                //Enable notification can also enable Indication if I want to. Notification is faster
-                descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                //Write descriptor callback should be invoked
-                gatt.writeDescriptor(descriptor)
+
+             val descriptor = characteristic?.getDescriptor(UUID.fromString(gattDescript))
+            d(TAG, "Descriptor that I set using 2902 is: $descriptor")
+
+            val descriptor_list = characteristic?.descriptors
+            d(TAG, "Descriptor list is: $descriptor_list")
+
+            descriptor_list?.forEach {
+                d(TAG, "Descriptor is: $it")
             }
+            gatt?.readCharacteristic(characteristic)
+
+            d(TAG, "Right before setCharacteristicNotification")
+            gatt?.setCharacteristicNotification(characteristic, true)
+            //Enable notification can also enable Indication if I want to. Notification is faster
+            descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            //Write descriptor callback should be invoked
+            gatt?.writeDescriptor(descriptor)
         }
 
         override fun onCharacteristicRead(
@@ -232,8 +225,13 @@ class SettingsActivity : AppCompatActivity() {
             descriptor: BluetoothGattDescriptor?,
             status: Int
         ) {
-            super.onDescriptorWrite(gatt, descriptor, status)
             d(TAG, "onDescriptorWrite")
+            val gattService = "00110011-4455-6677-8899-AABBCCDDEEFF"
+            val gattChar = "00000002-0000-1000-8000-00805f9b34fb"
+            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
+                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
+            characteristic?.setValue(byteArrayOf(0x01, 0x01))
+            gatt?.writeCharacteristic(characteristic)
         }
     }
 
