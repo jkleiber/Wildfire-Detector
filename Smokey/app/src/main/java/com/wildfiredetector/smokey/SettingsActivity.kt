@@ -9,7 +9,6 @@ import android.bluetooth.BluetoothDevice.TRANSPORT_LE
 import android.bluetooth.BluetoothGatt.STATE_CONNECTED
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanResult
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -26,8 +25,6 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.beepiz.bluetooth.gattcoroutines.GattConnection
-import com.beepiz.bluetooth.gattcoroutines.extensions.get
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.settings_activity.*
 import java.util.*
@@ -35,20 +32,6 @@ import kotlin.collections.ArrayList
 import kotlin.experimental.and
 
 class SettingsActivity : AppCompatActivity() {
-
-    // BLE GATT services
-    private val STATE_DISCONNECTED = 0
-    private val STATE_CONNECTING = 1
-    private val STATE_CONNECTED = 2
-    val ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED"
-    val ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED"
-    val ACTION_GATT_SERVICES_DISCOVERED =
-        "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
-    val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
-    val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
-
-    private var mBluetoothGatt: BluetoothGatt? = null
-    private var mConnectionState = STATE_DISCONNECTED
 
     // Constants
     private val REQUEST_ENABLE_BT = 10
@@ -65,7 +48,7 @@ class SettingsActivity : AppCompatActivity() {
      * Bluetooth Setup and scanning
      **/
     private val bleScanner = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult?) {
+        override fun onScanResult(callbackType: Int, result: android.bluetooth.le.ScanResult?) {
             super.onScanResult(callbackType, result)
             // makes sure that the name isn't null and that the device is also unique
             if (result?.device?.name != null && !(btDevices.contains(result.device))) {
@@ -76,7 +59,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         // Not sure what this does tbh
-        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+        override fun onBatchScanResults(results: MutableList<android.bluetooth.le.ScanResult>?) {
             super.onBatchScanResults(results)
             d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
         }
