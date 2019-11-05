@@ -138,6 +138,7 @@ class SettingsActivity : AppCompatActivity() {
                     // Notify no
                     Toast.makeText(this, "No Bluetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
                     onStop()
+
                 }
             }
 
