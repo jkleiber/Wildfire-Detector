@@ -59,6 +59,7 @@ class OverviewFragment : Fragment() {
         pageViewModel.location.observe(this, Observer<Location> { item ->
             // Update location
             currentLocation = item
+            VolleySingleton.getInstance(activity!!.applicationContext).currentLocation = item
         })
 
         // Listen for clicks on the fire report button

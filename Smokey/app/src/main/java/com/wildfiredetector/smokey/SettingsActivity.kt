@@ -1,30 +1,47 @@
 package com.wildfiredetector.smokey
 import android.Manifest
+import android.app.Activity
+import android.app.Service
 import android.bluetooth.*
+import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
+import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
 import android.bluetooth.BluetoothDevice.TRANSPORT_LE
+import android.bluetooth.BluetoothGatt.STATE_CONNECTED
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Location
+import android.nfc.NfcAdapter.EXTRA_DATA
+import android.os.Binder
 import android.os.Bundle
+import android.os.Handler
+import android.os.IBinder
 import android.util.Log
 import android.util.Log.*
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewModelProviders
-import com.google.android.material.snackbar.Snackbar
-import com.wildfiredetector.smokey.ui.main.PageViewModel
-import kotlinx.android.synthetic.main.settings_activity.*
-import org.json.JSONObject
-import java.util.*
-import kotlin.collections.ArrayList
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProviders
 import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.JsonObjectRequest
+import com.beepiz.bluetooth.gattcoroutines.GattConnection
+import com.beepiz.bluetooth.gattcoroutines.extensions.get
+import com.google.android.material.snackbar.Snackbar
+import com.wildfiredetector.smokey.ui.main.PageViewModel
+import kotlinx.android.synthetic.main.settings_activity.*
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.experimental.and
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -43,15 +60,15 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var pageViewModel: PageViewModel
 
+
     /**
      * Bluetooth Setup and scanning
      **/
     private val bleScanner = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: android.bluetooth.le.ScanResult?) {
+        override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             // makes sure that the name isn't null and that the device is also unique
             if (result?.device?.name != null && !(btDevices.contains(result.device))) {
-                Log.d("DISCOVERY", result.device?.name)
                 // Add a device to the device list
                 btDevices.add(result.device)
                 btReadableDevices.add("${result.device?.name}: ${result.device?.address}")
@@ -59,7 +76,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         // Not sure what this does tbh
-        override fun onBatchScanResults(results: MutableList<android.bluetooth.le.ScanResult>?) {
+        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
             super.onBatchScanResults(results)
             d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
         }
@@ -82,6 +99,8 @@ class SettingsActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         d("BLEGATT", "onStart")
+        bluetoothLeScanner.startScan(bleScanner)
+
     }
 
     override fun onStop()
@@ -97,20 +116,16 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
 
+        currentLocation = VolleySingleton.getInstance(this).currentLocation
+        d("LAT", currentLocation?.latitude.toString())
+
         pageViewModel = this.run{
             ViewModelProviders.of(this).get(PageViewModel::class.java)
         }
-        // Update location as the user moves around
-        pageViewModel.location.observe(this, Observer<Location> { item ->
-            // Update location
-            currentLocation = item
-        })
 
         bSensorConnect.setOnClickListener {
             if (getPermissions())
             {
-                bluetoothLeScanner.startScan(bleScanner)
-
                 // Notify discovery has started
                 Snackbar.make(it, "Device Discovery Started...", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
@@ -141,14 +156,16 @@ class SettingsActivity : AppCompatActivity() {
 
             // implement gattCallback
             clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
-
         }
-
         // Report fires
         pageViewModel.bleUpdate.observe(this, Observer<Boolean>{
             val jsonPkt = JSONObject()
             jsonPkt.put("latitude", currentLocation?.latitude)
             jsonPkt.put("longitude", currentLocation?.longitude)
+
+            d("FIREPKT", currentLocation?.latitude.toString())
+            d("FIREPKT", currentLocation?.longitude.toString())
+            d("FIREPKT", jsonPkt.toString(2))
 
             // Build a new request
             val request = JsonObjectRequest(
@@ -168,6 +185,7 @@ class SettingsActivity : AppCompatActivity() {
             // Add the fire to the database by sending a request using Volley
             VolleySingleton.getInstance(this.applicationContext).addToRequestQueue(request)
         })
+
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
@@ -214,9 +232,7 @@ class SettingsActivity : AppCompatActivity() {
                 val readFire =
                     characteristic!!.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
                 d(TAG, "reading in value: $readFire")
-
-                if(readFire == 1)
-                {
+                if (readFire == 1) {
                     pageViewModel.updateBLEFireReport(true)
                 }
             }
@@ -230,6 +246,11 @@ class SettingsActivity : AppCompatActivity() {
             characteristic?.let {
                 val readFire = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
                 d(TAG, "Fire flag is: $readFire")
+                if(readFire == 1)
+                {
+                    d(TAG, "in if statement")
+                    pageViewModel.updateBLEFireReport(true)
+                }
             }
         }
 

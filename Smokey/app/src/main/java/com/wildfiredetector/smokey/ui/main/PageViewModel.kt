@@ -35,7 +35,8 @@ class PageViewModel : ViewModel() {
 
     fun updateBLEFireReport(update: Boolean)
     {
-        bleUpdate.value = update
+        Log.d("UPDATE", "updating fire flag")
+        bleUpdate.postValue(update)
     }
 
 }
