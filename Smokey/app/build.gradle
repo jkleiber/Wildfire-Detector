@@ -13,6 +13,9 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        packagingOptions {
+            exclude 'META-INF/*'
+        }
     }
     buildTypes {
         release {
@@ -20,9 +23,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+    }
 }
 
 dependencies {
+    implementation("com.beepiz.blegattcoroutines:blegattcoroutines-core:$blegattcoroutines_version")
+    implementation("com.beepiz.blegattcoroutines:blegattcoroutines-genericaccess:$blegattcoroutines_version")
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.appcompat:appcompat:1.0.2'
@@ -32,9 +41,11 @@ dependencies {
     implementation 'androidx.preference:preference:1.1.0-alpha05'
     implementation 'androidx.lifecycle:lifecycle-extensions:2.0.0'
     implementation 'org.osmdroid:osmdroid-android:6.1.0'
+    implementation "com.polidea.rxandroidble2:rxandroidble:1.10.1"
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test:runner:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
     implementation 'com.google.android.gms:play-services-location:17.0.0'
+    implementation 'no.nordicsemi.android:ble:2.1.1'
     implementation 'com.android.volley:volley:1.1.1'
 }

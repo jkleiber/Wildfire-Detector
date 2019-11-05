@@ -1,6 +1,7 @@
 package com.wildfiredetector.smokey
 
 import android.content.Context
+import android.location.Location
 import com.android.volley.Request
 import com.android.volley.RequestQueue
 import com.android.volley.toolbox.Volley
@@ -36,5 +37,6 @@ class VolleySingleton constructor(context: Context)
         requestQueue.add(req)
     }
 
+    var currentLocation : Location? = null
 
 }

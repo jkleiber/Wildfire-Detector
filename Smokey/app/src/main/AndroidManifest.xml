@@ -24,6 +24,11 @@
             android:label="@string/app_name"
             android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
+                <action android:name="ACTION_DATA_AVAILABLE"/>
+                <action android:name="ACTION_GATT_CONNECTED"/>
+                <action android:name="ACTION_GATT_DISCONNECTED"/>
+                <action android:name="ACTION_GATT_SERVICES_DISCOVERED"/>
+
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />

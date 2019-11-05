@@ -1,25 +1,47 @@
 package com.wildfiredetector.smokey
-
+import android.Manifest
 import android.app.Activity
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothHeadset
-import android.bluetooth.BluetoothProfile
+import android.app.Service
+import android.bluetooth.*
+import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
+import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
+import android.bluetooth.BluetoothDevice.TRANSPORT_LE
+import android.bluetooth.BluetoothGatt.STATE_CONNECTED
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.location.Location
+import android.nfc.NfcAdapter.EXTRA_DATA
+import android.os.Binder
 import android.os.Bundle
-import android.util.Log.d
+import android.os.Handler
+import android.os.IBinder
+import android.util.Log
+import android.util.Log.*
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProviders
+import com.android.volley.Request
+import com.android.volley.Response
+import com.android.volley.toolbox.JsonObjectRequest
+import com.beepiz.bluetooth.gattcoroutines.GattConnection
+import com.beepiz.bluetooth.gattcoroutines.extensions.get
 import com.google.android.material.snackbar.Snackbar
+import com.wildfiredetector.smokey.ui.main.PageViewModel
 import kotlinx.android.synthetic.main.settings_activity.*
-import android.Manifest
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.experimental.and
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -29,241 +51,285 @@ class SettingsActivity : AppCompatActivity() {
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
 
-    /**
-     * Bluetooth Setup
-     **/
-    // Enabled
-    private var bluetoothEnabled: Boolean = false
-
-    // "Headset"
-    private var bluetoothHeadset: BluetoothHeadset? = null
-
-    // Bluetooth Profile
-    private val profileListener = object : BluetoothProfile.ServiceListener {
-
-        override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-            if (profile == BluetoothProfile.HEADSET) {
-                bluetoothHeadset = proxy as BluetoothHeadset
-            }
-        }
-
-        override fun onServiceDisconnected(profile: Int) {
-            if (profile == BluetoothProfile.HEADSET) {
-                bluetoothHeadset = null
-            }
-        }
-    }
-
-    // Get the default adapter
-    private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
-
-    // List of paired devices
-    val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
-
     var btDevices: ArrayList<BluetoothDevice> = ArrayList()
     var btReadableDevices: ArrayList<String> = ArrayList()
 
-    // Create a BroadcastReceiver for ACTION_FOUND.
-    private val receiver = object : BroadcastReceiver() {
+    private val reportURL = "http://smokey.x10.bz/php/report_fire.php"
 
-        override fun onReceive(context: Context, intent: Intent) {
-            val action: String = intent.action
+    var currentLocation : Location? = null
 
-            when(action) {
-                BluetoothDevice.ACTION_FOUND -> {
-                    // Discovery has found a device. Get the BluetoothDevice
-                    // object and its info from the Intent.
-                    val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                    // Found another method that might display more names on the list
-                    val deviceName: String? = intent.getStringExtra(BluetoothDevice.EXTRA_NAME)
+    private lateinit var pageViewModel: PageViewModel
 
-                    // Add a device to the device list
-                    addDeviceToList(device, deviceName)
-                }
+
+    /**
+     * Bluetooth Setup and scanning
+     **/
+    private val bleScanner = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult?) {
+            super.onScanResult(callbackType, result)
+            // makes sure that the name isn't null and that the device is also unique
+            if (result?.device?.name != null && !(btDevices.contains(result.device))) {
+                // Add a device to the device list
+                btDevices.add(result.device)
+                btReadableDevices.add("${result.device?.name}: ${result.device?.address}")
             }
         }
+
+        // Not sure what this does tbh
+        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+            super.onBatchScanResults(results)
+            d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
+        }
+
+        // Error Checking
+        override fun onScanFailed(errorCode: Int) {
+            super.onScanFailed(errorCode)
+            d("DeviceListActivity", "onScanFailed: $errorCode")
+        }
     }
+
+    private val bluetoothLeScanner: BluetoothLeScanner
+        get() {
+            val bluetoothManager =
+                applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val bluetoothAdapter = bluetoothManager.adapter
+            return bluetoothAdapter.bluetoothLeScanner
+        }
+
+    override fun onStart() {
+        super.onStart()
+        d("BLEGATT", "onStart")
+        bluetoothLeScanner.startScan(bleScanner)
+
+    }
+
+    override fun onStop()
+    {
+        super.onStop()
+        d("BLEGATT",  "onStop")
+        bluetoothLeScanner.stopScan(bleScanner)
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        d("DeviceListActivity", "onCreate()")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        // Register for broadcasts when a device is discovered.
-        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-        registerReceiver(receiver, filter)
+        currentLocation = VolleySingleton.getInstance(this).currentLocation
+        d("LAT", currentLocation?.latitude.toString())
 
-        // Sensor connection button
-        bSensorConnect.setOnClickListener{ view ->
-            // Request all the bluetooth permissions
-            if(getPermissions()) {
-                // Open bluetooth connections
-                startBluetooth(view.context)
+        pageViewModel = this.run{
+            ViewModelProviders.of(this).get(PageViewModel::class.java)
+        }
 
-                // Set device to be discoverable
-                val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-                }
-                startActivity(discoverableIntent)
-
-
-                // Clear all the devices for rescanning
-                btDevices.clear()
-                btReadableDevices.clear()
-
-                // Connect to bluetooth devices
-                bluetoothAdapter?.startDiscovery()
-
+        bSensorConnect.setOnClickListener {
+            if (getPermissions())
+            {
                 // Notify discovery has started
-                Snackbar.make(view, "Device Discovery Started...", Snackbar.LENGTH_LONG)
+                Snackbar.make(it, "Device Discovery Started...", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
 
-                // Clean up bluetooth connections
-                //stopBluetooth()
+                updateDeviceList()
+
+                // Notifies if there are no BLE devices in the are
+                if(btDevices.isEmpty())
+                {
+                    // Notify no
+                    Toast.makeText(this, "No Bluetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
+                    onStop()
+
+                }
+            }
+
+        }
+        // When a bt device is clicked on the view get the device info
+        bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
+
+            // Get the device
+            val clickedDevice: BluetoothDevice = btDevices[id.toInt()]
+
+            Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
+
+            // Testing to see if BT device is removed when a device is clicked.
+            //btDevices.remove(clickedDevice)
+            //updateDeviceList()
+
+            // implement gattCallback
+            clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
+        }
+        // Report fires
+        pageViewModel.bleUpdate.observe(this, Observer<Boolean>{
+            val jsonPkt = JSONObject()
+            jsonPkt.put("latitude", currentLocation?.latitude)
+            jsonPkt.put("longitude", currentLocation?.longitude)
+
+            d("FIREPKT", currentLocation?.latitude.toString())
+            d("FIREPKT", currentLocation?.longitude.toString())
+            d("FIREPKT", jsonPkt.toString(2))
+
+            // Build a new request
+            val request = JsonObjectRequest(
+                Request.Method.POST, reportURL, jsonPkt,
+                Response.Listener{
+                    d("RESPONSE", it.toString())
+
+                    // Update the map
+                    pageViewModel.updateMap(true)
+                },
+                Response.ErrorListener {
+                    e("RESPONSE", it?.message)
+                    val errorText = "Failed to report fire: %s".format(it.message)
+                }
+            )
+
+            // Add the fire to the database by sending a request using Volley
+            VolleySingleton.getInstance(this.applicationContext).addToRequestQueue(request)
+        })
+
+    }
+
+    private val gattCallback = object : BluetoothGattCallback() {
+        val TAG: String = "BLEGATT"
+        override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
+            d(TAG, "onConnectionStateChange")
+            if (newState == BluetoothGatt.STATE_CONNECTED)
+            {
+                while(gatt?.discoverServices() == false)
+                {
+                    gatt.discoverServices()
+                    gatt.requestMtu(256)
+                }
             }
         }
 
-        // Connect to a device if it is clicked
-        bluetoothDeviceList.setOnItemClickListener{ parent, view, position, id ->
-            // Get the device
-            val device = btDevices[id.toInt()]
+        override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
+            val gattService = "00110011-4455-6677-8899-AABBCCDDEEFF"
+            val gattChar = "00000002-0000-1000-8000-00805f9b34fb"
+            val gattDescript = "000002902-0000-1000-8000-00805f9b34fb"
+            d(TAG,"inside onServicesDiscovered")
 
-            // Try connecting to the device
-            // btSocket = device.createRfcommSocketToServiceRecord()
+            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
+                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
+
+
+            val descriptor = characteristic?.getDescriptor(UUID.fromString(gattDescript))
+            gatt?.readCharacteristic(characteristic)
+
+            d(TAG, "Right before setCharacteristicNotification")
+            gatt?.setCharacteristicNotification(characteristic, true)
+            //Enable notification can also enable Indication if I want to. Notification is faster
+            descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            //Write descriptor callback should be invoked
+            gatt?.writeDescriptor(descriptor)
         }
-    }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        when(requestCode)
-        {
-            REQUEST_ENABLE_BT -> bluetoothEnabled = resultCode == Activity.RESULT_OK
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                val readFire =
+                    characteristic!!.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
+                d(TAG, "reading in value: $readFire")
+                if (readFire == 1) {
+                    pageViewModel.updateBLEFireReport(true)
+                }
+            }
         }
-    }
 
-    override fun onDestroy() {
-        super.onDestroy()
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            d(TAG, "in onCharacteristicChanged")
+            characteristic?.let {
+                val readFire = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
+                d(TAG, "Fire flag is: $readFire")
+                if(readFire == 1)
+                {
+                    d(TAG, "in if statement")
+                    pageViewModel.updateBLEFireReport(true)
+                }
+            }
+        }
 
-        // Don't forget to unregister the ACTION_FOUND receiver.
-        unregisterReceiver(receiver)
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt?,
+            descriptor: BluetoothGattDescriptor?,
+            status: Int
+        ) {
+            d(TAG, "onDescriptorWrite")
+            super.onDescriptorWrite(gatt, descriptor, status)
+        }
     }
 
     /**
      * Permissions
      */
-    private fun getPermissions(): Boolean
-    {
+    private fun getPermissions(): Boolean {
         var result: Boolean = true
 
         // Access bluetooth
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
             requestPermissions(arrayOf(Manifest.permission.BLUETOOTH), REQUEST_ENABLE_BT)
-        }
-        else
-        {
+        } else {
             result = true
         }
 
         // Access coarse location
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
-            requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_ADMIN), REQUEST_ENABLE_BT_ADMIN)
-        }
-        else
-        {
-            result = result &&  true
+            requestPermissions(
+                arrayOf(Manifest.permission.BLUETOOTH_ADMIN),
+                REQUEST_ENABLE_BT_ADMIN
+            )
+        } else {
+            result = result && true
         }
 
         // Access coarse location
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), REQUEST_COARSE_LOC)
-        }
-        else
-        {
-            result = result &&  true
+            requestPermissions(
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+                REQUEST_COARSE_LOC
+            )
+        } else {
+            result = result && true
         }
 
         // Access fine location
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             // Permission is not granted
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_FINE_LOC)
-        }
-        else
-        {
+        } else {
             result = result && true
         }
 
         return result
     }
 
-    /**
-     * Bluetooth functions
-     */
-    private fun startBluetooth(context: Context)
-    {
-        if (bluetoothAdapter?.isEnabled == false) {
-            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
-        }
-
-        // Establish connection to the proxy.
-        bluetoothAdapter?.getProfileProxy(context, profileListener, BluetoothProfile.HEADSET)
-    }
-
-    private fun listBluetoothDevices()
-    {
-        var devices: ArrayList<String> = ArrayList()
-
-        pairedDevices?.forEach { device ->
-            val deviceName = device.name
-            val deviceHardwareAddress = device.address // MAC address
-
-            devices.add("$deviceName: $deviceHardwareAddress")
-        }
-
-        // Populate bluetooth device list
-        var adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, devices)
-        bluetoothDeviceList.adapter = adapter
-    }
-
-    private fun stopBluetooth()
-    {
-        // Close proxy connection after use.
-        bluetoothAdapter?.closeProfileProxy(BluetoothProfile.HEADSET, bluetoothHeadset)
-    }
-
-    private fun addDeviceToList(newDevice: BluetoothDevice, newName: String?)
-    {
-        // Add to the readable list
-        if(newDevice.name != null)
-        {
-            // Add a device to the device list
-            btDevices.add(newDevice)
-            btReadableDevices.add("${newDevice.name}: ${newDevice.address}")
-        }
-
-        else if(newName != null)
-        {
-            btDevices.add(newDevice)
-            btReadableDevices.add("$newName: ${newDevice.address}")
-        }
-
-
-        // Update the device list
-        updateDeviceList()
-    }
 
     private fun updateDeviceList()
     {
         // Populate bluetooth device list
-        var adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, btReadableDevices)
+        val adapter = ArrayAdapter(applicationContext, android.R.layout.simple_list_item_1, btReadableDevices)
         bluetoothDeviceList.adapter = adapter
     }
+
 }
+
+
+
+
