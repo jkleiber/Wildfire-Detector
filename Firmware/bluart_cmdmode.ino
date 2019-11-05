@@ -1,15 +1,15 @@
 /*********************************************************************
- This is an example for our nRF51822 based Bluefruit LE modules
+  This is an example for our nRF51822 based Bluefruit LE modules
 
- Pick one up today in the adafruit shop!
+  Pick one up today in the adafruit shop!
 
- Adafruit invests time and resources providing this open source code,
- please support Adafruit and open-source hardware by purchasing
- products from Adafruit!
+  Adafruit invests time and resources providing this open source code,
+  please support Adafruit and open-source hardware by purchasing
+  products from Adafruit!
 
- MIT license, check LICENSE for more information
- All text above, and the splash screen below must be included in
- any redistribution
+  MIT license, check LICENSE for more information
+  All text above, and the splash screen below must be included in
+  any redistribution
 *********************************************************************/
 
 #include <Arduino.h>
@@ -21,30 +21,30 @@
 #include "BluefruitConfig.h"
 
 #if SOFTWARE_SERIAL_AVAILABLE
-  #include <SoftwareSerial.h>
+#include <SoftwareSerial.h>
 #endif
 
 /*=========================================================================
     APPLICATION SETTINGS
 
-    FACTORYRESET_ENABLE       Perform a factory reset when running this sketch
-   
-                              Enabling this will put your Bluefruit LE module
+      FACTORYRESET_ENABLE       Perform a factory reset when running this sketch
+     
+                                Enabling this will put your Bluefruit LE module
                               in a 'known good' state and clear any config
                               data set in previous sketches or projects, so
-                              running this at least once is a good idea.
-   
-                              When deploying your project, however, you will
+                                running this at least once is a good idea.
+     
+                                When deploying your project, however, you will
                               want to disable factory reset by setting this
                               value to 0.  If you are making changes to your
-                              Bluefruit LE device via AT commands, and those
+                                Bluefruit LE device via AT commands, and those
                               changes aren't persisting across resets, this
                               is the reason why.  Factory reset will erase
                               the non-volatile memory where config data is
                               stored, setting it back to factory default
                               values.
-       
-                              Some sketches that require you to bond to a
+         
+                                Some sketches that require you to bond to a
                               central device (HID mouse, keyboard, etc.)
                               won't work at all with this feature enabled
                               since the factory reset will clear all of the
@@ -55,18 +55,18 @@
                               "DISABLE" or "MODE" or "BLEUART" or
                               "HWUART"  or "SPI"  or "MANUAL"
     -----------------------------------------------------------------------*/
-    #define FACTORYRESET_ENABLE         1
-    #define MINIMUM_FIRMWARE_VERSION    "0.6.6"
-    #define MODE_LED_BEHAVIOUR          "MODE"
-    #define FIRE_ANALOG                 A0
-    #define FIRE_DIGITAL                2
+#define FACTORYRESET_ENABLE         1
+#define MINIMUM_FIRMWARE_VERSION    "0.6.6"
+#define MODE_LED_BEHAVIOUR          "MODE"
+#define FIRE_ANALOG                 A0
+#define FIRE_DIGITAL                2
 /*=========================================================================*/
 
 // Create the bluefruit object, either software serial...uncomment these lines
 /*
-SoftwareSerial bluefruitSS = SoftwareSerial(BLUEFRUIT_SWUART_TXD_PIN, BLUEFRUIT_SWUART_RXD_PIN);
+  SoftwareSerial bluefruitSS = SoftwareSerial(BLUEFRUIT_SWUART_TXD_PIN, BLUEFRUIT_SWUART_RXD_PIN);
 
-Adafruit_BluefruitLE_UART ble(bluefruitSS, BLUEFRUIT_UART_MODE_PIN,
+  Adafruit_BluefruitLE_UART ble(bluefruitSS, BLUEFRUIT_UART_MODE_PIN,
                       BLUEFRUIT_UART_CTS_PIN, BLUEFRUIT_UART_RTS_PIN);
 */
 
@@ -81,6 +81,7 @@ Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_
 //                             BLUEFRUIT_SPI_MOSI, BLUEFRUIT_SPI_CS,
 //                             BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 
+bool fire;
 
 // A small helper
 void error(const __FlashStringHelper*err)
@@ -91,18 +92,27 @@ void error(const __FlashStringHelper*err)
 
 void detected()
 {
-    bool fire = false;
-    static unsigned long lastInterruptTime = 0;
-    float fireSignal = analogRead(FIRE_ANALOG);
+  static unsigned long lastInterruptTime = 0;
+  if ((millis() - lastInterruptTime > 5000) || (millis() - lastInterruptTime < 0))
+  {
+    fire = true;
+  }
+  lastInterruptTime = millis();
+}
 
-    //TODO: Measure value at analog in at the same time and determine if there is a fire
-
-    // Only send signal every 5 seconds. OR handles millis rollover.
-    if(fire && ((millis() - lastInterruptTime > 5000) || (millis() - lastInterruptTime < 0))
-    {
-      //TODO: Send signal to app
-    }
-    lastInterruptTime = millis();
+void sendFire()
+{
+  // Send signal to app
+  char detected[] = {'F', 'i', 'r', 'e'};
+  ble.print("AT+BLEUARTTX=");
+  ble.println(detected);
+  Serial.println("Sent fire");
+  // check response status
+  if (! ble.waitForOK() )
+  {
+    Serial.println(F("Failed to send?"));
+    fire = false;
+  }
 }
 
 /**************************************************************************/
@@ -115,14 +125,17 @@ void setup(void)
 {
 
   // Set up digital interrupt
-  pinMode(FIRE_ANALOG, INPUT);
-  pinMode(FIRE_DIGITAL, INPUT_PULLDOWN);
-  attachInterrupt(digitalPinToInterrupt(FIRE_DIGITAL), detected, RISING);
+  fire = false;
+  //pinMode(FIRE_ANALOG, INPUT);
+  //pinMode(FIRE_DIGITAL, INPUT_PULLDOWN);
+  //attachInterrupt(digitalPinToInterrupt(FIRE_DIGITAL), detected, RISING);
 
   while (!Serial);  // required for Flora & Micro
   delay(500);
 
   Serial.begin(115200);
+  Serial.println(F("Adafruit Bluefruit Command Mode Example"));
+  Serial.println(F("---------------------------------------"));
 
   /* Initialise the module */
   Serial.print(F("Initialising the Bluefruit LE module: "));
@@ -137,7 +150,7 @@ void setup(void)
   {
     /* Perform a factory reset to make sure everything is in a known state */
     Serial.println(F("Performing a factory reset: "));
-    if ( ! ble.factoryReset() ){
+    if ( ! ble.factoryReset() ) {
       error(F("Couldn't factory reset"));
     }
   }
@@ -157,7 +170,7 @@ void setup(void)
 
   /* Wait for connection */
   while (! ble.isConnected()) {
-      delay(500);
+    delay(500);
   }
 
   // LED Activity command is only supported from 0.6.6
@@ -178,8 +191,12 @@ void setup(void)
 /**************************************************************************/
 void loop(void)
 {
+  detected();
+  if (fire)
+    sendFire();
+
   // Check for user input
-  char inputs[BUFSIZE+1];
+  char inputs[BUFSIZE + 1];
 
   if ( getUserInput(inputs, BUFSIZE) )
   {
@@ -190,7 +207,7 @@ void loop(void)
     ble.print("AT+BLEUARTTX=");
     ble.println(inputs);
 
-    // check response stastus
+    // check response status
     if (! ble.waitForOK() ) {
       Serial.println(F("Failed to send?"));
     }
@@ -219,17 +236,20 @@ bool getUserInput(char buffer[], uint8_t maxSize)
   TimeoutTimer timeout(100);
 
   memset(buffer, 0, maxSize);
-  while( (!Serial.available()) && !timeout.expired() ) { delay(1); }
+  while ( (!Serial.available()) && !timeout.expired() ) {
+    delay(1);
+  }
 
   if ( timeout.expired() ) return false;
 
   delay(2);
-  uint8_t count=0;
+  uint8_t count = 0;
   do
   {
-    count += Serial.readBytes(buffer+count, maxSize);
+    count += Serial.readBytes(buffer + count, maxSize);
     delay(2);
-  } while( (count < maxSize) && (Serial.available()) );
+  } while ( (count < maxSize) && (Serial.available()) );
 
   return true;
 }
+

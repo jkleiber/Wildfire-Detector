@@ -5,7 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
-import android.util.Log
+import android.util.Log.d
+import android.util.Log.e
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,23 +14,29 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
+import com.android.volley.Request
+import com.android.volley.toolbox.JsonObjectRequest
 import com.google.android.material.snackbar.Snackbar
-import com.wildfiredetector.smokey.Fire
 import com.wildfiredetector.smokey.FireManager
 import com.wildfiredetector.smokey.R
-import kotlinx.android.synthetic.main.fragment_fire_map.*
+import com.wildfiredetector.smokey.VolleySingleton
 import kotlinx.android.synthetic.main.fragment_overview.*
-import java.lang.ClassCastException
+import org.json.JSONObject
 import java.lang.Exception
 
 class OverviewFragment : Fragment() {
 
     private lateinit var pageViewModel: PageViewModel
 
+    // Arbitrary Permission IDs for finding out if permission is approved
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
 
+    // Current device location
     private var currentLocation: Location? = null
+
+    // Database information
+    private val reportURL = "http://smokey.x10.bz/php/report_fire.php"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,21 +56,39 @@ class OverviewFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Update location as the user moves around
         pageViewModel.location.observe(this, Observer<Location> { item ->
-            // Display the fire
+            // Update location
             currentLocation = item
         })
 
         // Listen for clicks on the fire report button
         bDetectWildfire.setOnClickListener { view ->
-            Snackbar.make(view, "Fire Reported!", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+            // Create a JSON packet for sending the data to the database
+            val jsonPkt = JSONObject()
+            jsonPkt.put("latitude", currentLocation?.latitude)
+            jsonPkt.put("longitude", currentLocation?.longitude)
 
-            // Add the fire to the map
-            FireManager.addFire(context, currentLocation?.latitude, currentLocation?.longitude)
+            // Build a new request
+            val request = JsonObjectRequest(Request.Method.POST, reportURL, jsonPkt,
+                com.android.volley.Response.Listener{
+                    d("RESPONSE", it.toString())
+                    Snackbar.make(view, "Fire reported!", Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show()
 
-            // Update the map
-            pageViewModel.updateMap(true)
+                    // Update the map
+                    pageViewModel.updateMap(true)
+                },
+                com.android.volley.Response.ErrorListener {
+                    e("RESPONSE", it?.message)
+                    val errorText = "Failed to report fire: %s".format(it.message)
+                    Snackbar.make(view, errorText, Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show()
+                }
+            )
+
+            // Add the fire to the database by sending a request using Volley
+            VolleySingleton.getInstance(activity!!.applicationContext).addToRequestQueue(request)
         }
     }
 
