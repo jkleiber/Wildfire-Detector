@@ -17,7 +17,6 @@ import androidx.lifecycle.ViewModelProviders
 import com.android.volley.Request
 import com.android.volley.toolbox.JsonObjectRequest
 import com.google.android.material.snackbar.Snackbar
-import com.wildfiredetector.smokey.FireManager
 import com.wildfiredetector.smokey.R
 import com.wildfiredetector.smokey.VolleySingleton
 import kotlinx.android.synthetic.main.fragment_overview.*

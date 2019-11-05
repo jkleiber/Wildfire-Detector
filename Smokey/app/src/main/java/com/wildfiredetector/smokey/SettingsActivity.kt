@@ -1,35 +1,30 @@
 package com.wildfiredetector.smokey
 import android.Manifest
-import android.app.Activity
-import android.app.Service
 import android.bluetooth.*
-import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
-import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
 import android.bluetooth.BluetoothDevice.TRANSPORT_LE
-import android.bluetooth.BluetoothGatt.STATE_CONNECTED
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.nfc.NfcAdapter.EXTRA_DATA
-import android.os.Binder
+import android.location.Location
 import android.os.Bundle
-import android.os.Handler
-import android.os.IBinder
 import android.util.Log
 import android.util.Log.*
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProviders
 import com.google.android.material.snackbar.Snackbar
+import com.wildfiredetector.smokey.ui.main.PageViewModel
 import kotlinx.android.synthetic.main.settings_activity.*
+import org.json.JSONObject
 import java.util.*
 import kotlin.collections.ArrayList
-import kotlin.experimental.and
+import androidx.lifecycle.Observer
+import com.android.volley.Request
+import com.android.volley.Response
+import com.android.volley.toolbox.JsonObjectRequest
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -42,7 +37,11 @@ class SettingsActivity : AppCompatActivity() {
     var btDevices: ArrayList<BluetoothDevice> = ArrayList()
     var btReadableDevices: ArrayList<String> = ArrayList()
 
+    private val reportURL = "http://smokey.x10.bz/php/report_fire.php"
 
+    var currentLocation : Location? = null
+
+    private lateinit var pageViewModel: PageViewModel
 
     /**
      * Bluetooth Setup and scanning
@@ -52,6 +51,7 @@ class SettingsActivity : AppCompatActivity() {
             super.onScanResult(callbackType, result)
             // makes sure that the name isn't null and that the device is also unique
             if (result?.device?.name != null && !(btDevices.contains(result.device))) {
+                Log.d("DISCOVERY", result.device?.name)
                 // Add a device to the device list
                 btDevices.add(result.device)
                 btReadableDevices.add("${result.device?.name}: ${result.device?.address}")
@@ -82,8 +82,6 @@ class SettingsActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         d("BLEGATT", "onStart")
-        bluetoothLeScanner.startScan(bleScanner)
-
     }
 
     override fun onStop()
@@ -99,9 +97,20 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
 
+        pageViewModel = this.run{
+            ViewModelProviders.of(this).get(PageViewModel::class.java)
+        }
+        // Update location as the user moves around
+        pageViewModel.location.observe(this, Observer<Location> { item ->
+            // Update location
+            currentLocation = item
+        })
+
         bSensorConnect.setOnClickListener {
             if (getPermissions())
             {
+                bluetoothLeScanner.startScan(bleScanner)
+
                 // Notify discovery has started
                 Snackbar.make(it, "Device Discovery Started...", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
@@ -112,7 +121,7 @@ class SettingsActivity : AppCompatActivity() {
                 if(btDevices.isEmpty())
                 {
                     // Notify no
-                    Toast.makeText(this, "No Buetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "No Bluetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
                     onStop()
                 }
             }
@@ -134,6 +143,31 @@ class SettingsActivity : AppCompatActivity() {
             clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
 
         }
+
+        // Report fires
+        pageViewModel.bleUpdate.observe(this, Observer<Boolean>{
+            val jsonPkt = JSONObject()
+            jsonPkt.put("latitude", currentLocation?.latitude)
+            jsonPkt.put("longitude", currentLocation?.longitude)
+
+            // Build a new request
+            val request = JsonObjectRequest(
+                Request.Method.POST, reportURL, jsonPkt,
+                Response.Listener{
+                    d("RESPONSE", it.toString())
+
+                    // Update the map
+                    pageViewModel.updateMap(true)
+                },
+                Response.ErrorListener {
+                    e("RESPONSE", it?.message)
+                    val errorText = "Failed to report fire: %s".format(it.message)
+                }
+            )
+
+            // Add the fire to the database by sending a request using Volley
+            VolleySingleton.getInstance(this.applicationContext).addToRequestQueue(request)
+        })
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
@@ -180,6 +214,11 @@ class SettingsActivity : AppCompatActivity() {
                 val readFire =
                     characteristic!!.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
                 d(TAG, "reading in value: $readFire")
+
+                if(readFire == 1)
+                {
+                    pageViewModel.updateBLEFireReport(true)
+                }
             }
         }
 
