@@ -176,6 +176,7 @@ class SettingsActivity : AppCompatActivity() {
 
                     // Update the map
                     pageViewModel.updateMap(true)
+                    Toast.makeText(this@SettingsActivity, "Fire Detected", Toast.LENGTH_SHORT).show()
                 },
                 Response.ErrorListener {
                     e("RESPONSE", it?.message)
