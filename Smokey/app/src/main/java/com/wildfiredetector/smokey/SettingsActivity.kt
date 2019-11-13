@@ -251,7 +251,6 @@ class SettingsActivity : AppCompatActivity() {
                 if(readFire == 1)
                 {
                     d(TAG, "in if statement")
-                    showNotification("Smokey", "Fire Detected")
                     pageViewModel.updateBLEFireReport(true)
                 }
             }
@@ -330,37 +329,6 @@ class SettingsActivity : AppCompatActivity() {
         bluetoothDeviceList.adapter = adapter
     }
 
-    // Creates notification for the app
-    fun showNotification(title: String, message: String)
-    {
-        val CHANNEL_ID = "Smokey Notification"
-        val NOTIFICATION_ID = 1
-
-        val mNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID,
-                "Smokey",
-                NotificationManager.IMPORTANCE_DEFAULT)
-            channel.description = "Fire has been detected"
-
-            mNotificationManager.createNotificationChannel(channel)
-        }
-
-
-        val mBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher) // notification icon
-            .setContentTitle(title) // title for notification
-            .setContentText(message)// message for notification
-            .setAutoCancel(true) // clear notification after click
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-        val intent = Intent(this, MainScreenActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        intent.putExtra("Tab", 1)
-        val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-        mBuilder.setContentIntent(pi)
-        mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build())
-        d("Notification", "showNotification called")
-    }
 }
 
 
