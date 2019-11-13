@@ -40,6 +40,7 @@ import org.osmdroid.views.overlay.OverlayItem
 
 
 class FireMapFragment : Fragment() {
+    companion object
 
     private lateinit var pageViewModel: PageViewModel
     private lateinit var fusedLocationClient: FusedLocationProviderClient
