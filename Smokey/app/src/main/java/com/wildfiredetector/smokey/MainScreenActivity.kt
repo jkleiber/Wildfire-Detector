@@ -1,6 +1,10 @@
 package com.wildfiredetector.smokey
 
 import android.Manifest
+import android.app.Notification
+import android.app.Notification.PRIORITY_LOW
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,6 +18,7 @@ import com.google.android.material.tabs.TabLayout
 import androidx.appcompat.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.get
 import androidx.fragment.app.Fragment
@@ -30,6 +35,7 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
 
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
+    private val ONGOING_NOTIFICATION_ID = 21
 
     lateinit var viewPager: HackedViewPager
 
@@ -74,6 +80,23 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
         pageViewModel = this.run{
             ViewModelProviders.of(this).get(PageViewModel::class.java)
         }
+
+
+        val pendingIntent: PendingIntent =
+            Intent(this, FireReportService::class.java).let { notificationIntent ->
+                PendingIntent.getActivity(this, 0, notificationIntent, 0)
+            }
+
+        val notification: Notification = Notification.Builder(this, NotificationManager.IMPORTANCE_LOW)
+            .setContentTitle("Smokey")
+            .setContentText("Smokey is detecting fires in the background")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
+            .setTicker("Yeet")
+            .build()
+
+        startForeground(ONGOING_NOTIFICATION_ID, notification)
+
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

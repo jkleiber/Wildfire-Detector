@@ -1,26 +1,17 @@
 package com.wildfiredetector.smokey
 import android.Manifest
+import android.content.Intent
+
 import android.app.*
 import android.bluetooth.*
-import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
-import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
 import android.bluetooth.BluetoothDevice.TRANSPORT_LE
-import android.bluetooth.BluetoothGatt.STATE_CONNECTED
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Location
-import android.nfc.NfcAdapter.EXTRA_DATA
-import android.os.Binder
 import android.os.Bundle
-import android.os.Handler
-import android.os.IBinder
-import android.util.Log
 import android.util.Log.*
 import android.widget.ArrayAdapter
 import android.widget.Toast
@@ -32,17 +23,12 @@ import androidx.lifecycle.ViewModelProviders
 import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.JsonObjectRequest
-import com.beepiz.bluetooth.gattcoroutines.GattConnection
-import com.beepiz.bluetooth.gattcoroutines.extensions.get
 import com.google.android.material.snackbar.Snackbar
-import com.wildfiredetector.smokey.ui.main.FireMapFragment
 import com.wildfiredetector.smokey.ui.main.PageViewModel
 import kotlinx.android.synthetic.main.settings_activity.*
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.util.*
 import kotlin.collections.ArrayList
-import kotlin.experimental.and
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -158,6 +144,9 @@ class SettingsActivity : AppCompatActivity() {
             // implement gattCallback
             clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
         }
+
+
+
         // Report fires
         pageViewModel.bleUpdate.observe(this, Observer<Boolean>{
             val jsonPkt = JSONObject()
@@ -271,7 +260,7 @@ class SettingsActivity : AppCompatActivity() {
      * Permissions
      */
     private fun getPermissions(): Boolean {
-        var result: Boolean = true
+        var result = true
 
         // Access bluetooth
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
