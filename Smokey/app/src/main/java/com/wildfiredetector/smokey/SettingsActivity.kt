@@ -1,7 +1,6 @@
 package com.wildfiredetector.smokey
 import android.Manifest
-import android.app.Activity
-import android.app.Service
+import android.app.*
 import android.bluetooth.*
 import android.bluetooth.BluetoothAdapter.STATE_CONNECTED
 import android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED
@@ -26,6 +25,7 @@ import android.util.Log.*
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
@@ -35,6 +35,7 @@ import com.android.volley.toolbox.JsonObjectRequest
 import com.beepiz.bluetooth.gattcoroutines.GattConnection
 import com.beepiz.bluetooth.gattcoroutines.extensions.get
 import com.google.android.material.snackbar.Snackbar
+import com.wildfiredetector.smokey.ui.main.FireMapFragment
 import com.wildfiredetector.smokey.ui.main.PageViewModel
 import kotlinx.android.synthetic.main.settings_activity.*
 import kotlinx.coroutines.withContext
@@ -112,9 +113,9 @@ class SettingsActivity : AppCompatActivity() {
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        d("DeviceListActivity", "onCreate()")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
+
 
         currentLocation = VolleySingleton.getInstance(this).currentLocation
         d("LAT", currentLocation?.latitude.toString())
@@ -138,7 +139,6 @@ class SettingsActivity : AppCompatActivity() {
                     // Notify no
                     Toast.makeText(this, "No Bluetooth Low-Energy devices found", Toast.LENGTH_SHORT).show()
                     onStop()
-
                 }
             }
 
@@ -251,6 +251,7 @@ class SettingsActivity : AppCompatActivity() {
                 if(readFire == 1)
                 {
                     d(TAG, "in if statement")
+                    showNotification("Smokey", "Fire Detected")
                     pageViewModel.updateBLEFireReport(true)
                 }
             }
@@ -329,6 +330,37 @@ class SettingsActivity : AppCompatActivity() {
         bluetoothDeviceList.adapter = adapter
     }
 
+    // Creates notification for the app
+    fun showNotification(title: String, message: String)
+    {
+        val CHANNEL_ID = "Smokey Notification"
+        val NOTIFICATION_ID = 1
+
+        val mNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(CHANNEL_ID,
+                "Smokey",
+                NotificationManager.IMPORTANCE_DEFAULT)
+            channel.description = "Fire has been detected"
+
+            mNotificationManager.createNotificationChannel(channel)
+        }
+
+
+        val mBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher) // notification icon
+            .setContentTitle(title) // title for notification
+            .setContentText(message)// message for notification
+            .setAutoCancel(true) // clear notification after click
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        val intent = Intent(this, MainScreenActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        intent.putExtra("Tab", 1)
+        val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        mBuilder.setContentIntent(pi)
+        mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build())
+        d("Notification", "showNotification called")
+    }
 }
 
 
