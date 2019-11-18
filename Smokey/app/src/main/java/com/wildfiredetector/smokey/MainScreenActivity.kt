@@ -87,16 +87,16 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
                 PendingIntent.getActivity(this, 0, notificationIntent, 0)
             }
 
+        /*
         val notification: Notification = Notification.Builder(this, NotificationManager.IMPORTANCE_LOW)
             .setContentTitle("Smokey")
             .setContentText("Smokey is detecting fires in the background")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setTicker("Yeet")
-            .build()
+            .build()*/
 
-        startForeground(ONGOING_NOTIFICATION_ID, notification)
-
+        //startForeground(ONGOING_NOTIFICATION_ID, notification)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
