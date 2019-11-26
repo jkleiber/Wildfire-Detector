@@ -11,6 +11,7 @@
 
         // Get helper functions for fire associations
         require_once("report_helper.php");
+		require_once("sendText.php");
 
         // Get report information
         $lat = $post_data['latitude'];
@@ -83,6 +84,7 @@
         {
             // Execute the database query for inserting the data
             $pdo->exec($query);
+			
         }
         // Inserting data failed, so print an error
         catch(PDOException $e)
@@ -96,6 +98,9 @@
             // Exit the script
             exit();
         }
+		
+		// send texts
+		sendText($lat, $lon);
 
         // Respond to request with success
         echo json_encode(array('message' => 'SUCCESS: Fire added to database successfully'));
