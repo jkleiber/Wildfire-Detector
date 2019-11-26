@@ -32,8 +32,6 @@ import androidx.lifecycle.ViewModelProviders
 import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.JsonObjectRequest
-import com.beepiz.bluetooth.gattcoroutines.GattConnection
-import com.beepiz.bluetooth.gattcoroutines.extensions.get
 import com.google.android.material.snackbar.Snackbar
 import com.wildfiredetector.smokey.ui.main.FireMapFragment
 import com.wildfiredetector.smokey.ui.main.PageViewModel
@@ -151,12 +149,14 @@ class SettingsActivity : AppCompatActivity() {
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
-            // Testing to see if BT device is removed when a device is clicked.
-            //btDevices.remove(clickedDevice)
-            //updateDeviceList()
+////          Testing to see if BT device is removed when a device is clicked.
+//            btDevices.remove(clickedDevice)
+//            updateDeviceList()
 
             // implement gattCallback
-            clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
+            val gattDevice = clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
+
+
         }
         // Report fires
         pageViewModel.bleUpdate.observe(this, Observer<Boolean>{
@@ -201,6 +201,13 @@ class SettingsActivity : AppCompatActivity() {
                     gatt.discoverServices()
                     gatt.requestMtu(256)
                 }
+            }
+            if(newState == BluetoothGatt.STATE_DISCONNECTED)
+            {
+                d(TAG, "Disconnected")
+                gatt?.disconnect()
+                Thread.sleep(10)
+                gatt?.close()
             }
         }
 
