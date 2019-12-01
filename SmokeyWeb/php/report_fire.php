@@ -1,21 +1,25 @@
 
 <?php
-    $post_data = json_decode(file_get_contents('php://input'), true);
+    //$post_data = json_decode(file_get_contents('php://input'), true);
 
     // Ensure all required fields are filled out
-    if(isset($post_data['latitude'])
-    && isset($post_data['longitude']))
-    {
+    //if(isset($post_data['latitude'])
+    //&& isset($post_data['longitude']))
+    //{
         // Connect to the database
         require_once("db_connect.php");
 
         // Get helper functions for fire associations
         require_once("report_helper.php");
-		require_once("sendText.php");
+        require_once("sendText.php");
+
+        echo "here";
 
         // Get report information
-        $lat = $post_data['latitude'];
-        $lon = $post_data['longitude'];
+        //$lat = $post_data['latitude'];
+        //$lon = $post_data['longitude'];
+        $lat = 35;
+        $lon = -96;
 
         // Form a point from the latitude and longitude
         $point = "POINT(". $pdo->quote($lat) . ", " . $pdo->quote($lon) .")";
@@ -84,7 +88,7 @@
         {
             // Execute the database query for inserting the data
             $pdo->exec($query);
-			
+
         }
         // Inserting data failed, so print an error
         catch(PDOException $e)
@@ -98,18 +102,18 @@
             // Exit the script
             exit();
         }
-		
+
 		// send texts
 		sendText($lat, $lon);
 
         // Respond to request with success
         echo json_encode(array('message' => 'SUCCESS: Fire added to database successfully'));
         exit();
-    }
+   // }
 
     // Debugging output
-    require_once("debug.php");
+    //require_once("debug.php");
 
     // Respond to request with error due to invalid post
-    echo json_encode(array('message' => 'ERROR: Incorrect POST format'));
+    //echo json_encode(array('message' => 'ERROR: Incorrect POST format'));
 ?>
