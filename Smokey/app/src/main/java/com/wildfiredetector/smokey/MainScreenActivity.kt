@@ -3,6 +3,7 @@ package com.wildfiredetector.smokey
 import android.Manifest
 import android.app.Notification
 import android.app.Notification.PRIORITY_LOW
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -35,7 +36,6 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
 
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
-    private val ONGOING_NOTIFICATION_ID = 21
 
     lateinit var viewPager: HackedViewPager
 
@@ -82,21 +82,7 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
         }
 
 
-        val pendingIntent: PendingIntent =
-            Intent(this, FireReportService::class.java).let { notificationIntent ->
-                PendingIntent.getActivity(this, 0, notificationIntent, 0)
-            }
-
-        /*
-        val notification: Notification = Notification.Builder(this, NotificationManager.IMPORTANCE_LOW)
-            .setContentTitle("Smokey")
-            .setContentText("Smokey is detecting fires in the background")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
-            .setTicker("Yeet")
-            .build()*/
-
-        //startForeground(ONGOING_NOTIFICATION_ID, notification)
+        this.startService(Intent(this, FireReportService::class.java))
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -174,4 +160,6 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
                 viewPager.setCurrentItem((extras.getInt("Tab")))
             }
     }
+
+
 }

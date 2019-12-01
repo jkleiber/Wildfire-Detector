@@ -1,16 +1,18 @@
 package com.wildfiredetector.smokey
 
-import android.app.Service
+import android.app.*
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
+import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.location.LocationListener
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.JsonObjectRequest
@@ -23,6 +25,9 @@ class FireReportService : Service(), LocationListener {
 
     var currentLocation: Location? = null
     var fireDetected: Boolean = false
+
+    val FOREGROUND_CHANNEL_ID = "Smokey Service"
+    val FOREGROUND_NOTIFICATION_ID = 9001
 
     // Database information
     private val reportURL = "http://smokey.x10.bz/php/report_fire.php"
@@ -42,6 +47,9 @@ class FireReportService : Service(), LocationListener {
         {
             checkFires()
         }
+
+        val notification: Notification = getPersistentNotification("Smokey", "Smokey is detecting fires in the background")
+        startForeground(FOREGROUND_NOTIFICATION_ID, notification)
 
         return super.onStartCommand(intent, flags, startId)
     }
@@ -134,7 +142,7 @@ class FireReportService : Service(), LocationListener {
 
     fun updateBLEFireReport(isFire: Boolean)
     {
-        fireDetected = true
+        fireDetected = isFire
     }
 
     private fun checkFires()
@@ -171,6 +179,38 @@ class FireReportService : Service(), LocationListener {
     }
 
 
+    // Creates notification for the app
+    private fun getPersistentNotification(title: String, message: String) : Notification
+    {
+        val mNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(FOREGROUND_CHANNEL_ID,
+                "Smokey",
+                NotificationManager.IMPORTANCE_DEFAULT)
+            channel.description = "Smokey is looking for fires"
+
+            mNotificationManager.createNotificationChannel(channel)
+        }
+
+
+        val mBuilder = NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher) // notification icon
+            .setContentTitle(title) // title for notification
+            .setContentText(message)// message for notification
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+        val intent = Intent(this, MainScreenActivity::class.java)
+        intent.putExtra("Tab", 1)
+
+        val pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+        mBuilder.setContentIntent(pi)
+
+        return mBuilder.build()
+    }
+
+
+
 
 
 
@@ -185,5 +225,8 @@ class FireReportService : Service(), LocationListener {
 
     override fun onProviderDisabled(p0: String?) {
     }
+
+
+
 
 }

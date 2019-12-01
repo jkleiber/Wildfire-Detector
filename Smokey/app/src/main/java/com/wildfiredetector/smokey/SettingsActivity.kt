@@ -48,40 +48,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var pageViewModel: PageViewModel
 
 
-    /**
-     * Bluetooth Setup and scanning
-     **/
-    private val bleScanner = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult?) {
-            super.onScanResult(callbackType, result)
-            // makes sure that the name isn't null and that the device is also unique
-            if (result?.device?.name != null && !(btDevices.contains(result.device))) {
-                // Add a device to the device list
-                btDevices.add(result.device)
-                btReadableDevices.add("${result.device?.name}: ${result.device?.address}")
-            }
-        }
 
-        // Not sure what this does tbh
-        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
-            super.onBatchScanResults(results)
-            d("DeviceListActivity", "onBatchScanResults:${results.toString()}")
-        }
-
-        // Error Checking
-        override fun onScanFailed(errorCode: Int) {
-            super.onScanFailed(errorCode)
-            d("DeviceListActivity", "onScanFailed: $errorCode")
-        }
-    }
-
-    private val bluetoothLeScanner: BluetoothLeScanner
-        get() {
-            val bluetoothManager =
-                applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val bluetoothAdapter = bluetoothManager.adapter
-            return bluetoothAdapter.bluetoothLeScanner
-        }
 
     override fun onStart() {
         super.onStart()
@@ -137,12 +104,8 @@ class SettingsActivity : AppCompatActivity() {
 
             Toast.makeText(this, "${clickedDevice.name}: ${clickedDevice.address}", Toast.LENGTH_SHORT).show()
 
-            // Testing to see if BT device is removed when a device is clicked.
-            //btDevices.remove(clickedDevice)
-            //updateDeviceList()
-
             // implement gattCallback
-            clickedDevice.connectGatt(this, false, gattCallback, TRANSPORT_LE)
+            clickedDevice.connectGatt(this, true, BLESingleton.getInstance(this).gattCallback, TRANSPORT_LE)
         }
 
 
@@ -177,83 +140,6 @@ class SettingsActivity : AppCompatActivity() {
             VolleySingleton.getInstance(this.applicationContext).addToRequestQueue(request)
         })
 
-    }
-
-    private val gattCallback = object : BluetoothGattCallback() {
-        val TAG: String = "BLEGATT"
-        override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-            d(TAG, "onConnectionStateChange")
-            if (newState == BluetoothGatt.STATE_CONNECTED)
-            {
-                while(gatt?.discoverServices() == false)
-                {
-                    gatt.discoverServices()
-                    gatt.requestMtu(256)
-                }
-            }
-        }
-
-        override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            val gattService = "00110011-4455-6677-8899-AABBCCDDEEFF"
-            val gattChar = "00000002-0000-1000-8000-00805f9b34fb"
-            val gattDescript = "000002902-0000-1000-8000-00805f9b34fb"
-            d(TAG,"inside onServicesDiscovered")
-
-            val characteristic = gatt?.getService(UUID.fromString(gattService)) // this should be whatever we decide to have. In the example code they have expandUuid
-                ?.getCharacteristic(UUID.fromString(gattChar)) // This is the specific characteristic
-
-
-            val descriptor = characteristic?.getDescriptor(UUID.fromString(gattDescript))
-            gatt?.readCharacteristic(characteristic)
-
-            d(TAG, "Right before setCharacteristicNotification")
-            gatt?.setCharacteristicNotification(characteristic, true)
-            //Enable notification can also enable Indication if I want to. Notification is faster
-            descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            //Write descriptor callback should be invoked
-            gatt?.writeDescriptor(descriptor)
-        }
-
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt?,
-            characteristic: BluetoothGattCharacteristic?,
-            status: Int
-        ) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                val readFire =
-                    characteristic!!.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
-                d(TAG, "reading in value: $readFire")
-                if (readFire == 1) {
-                    pageViewModel.updateBLEFireReport(true)
-                }
-            }
-        }
-
-        override fun onCharacteristicChanged(
-            gatt: BluetoothGatt?,
-            characteristic: BluetoothGattCharacteristic?
-        ) {
-            d(TAG, "in onCharacteristicChanged")
-            characteristic?.let {
-                val readFire = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
-                d(TAG, "Fire flag is: $readFire")
-                if(readFire == 1)
-                {
-                    d(TAG, "in if statement")
-                    showNotification("Smokey", "Fire Detected")
-                    pageViewModel.updateBLEFireReport(true)
-                }
-            }
-        }
-
-        override fun onDescriptorWrite(
-            gatt: BluetoothGatt?,
-            descriptor: BluetoothGattDescriptor?,
-            status: Int
-        ) {
-            d(TAG, "onDescriptorWrite")
-            super.onDescriptorWrite(gatt, descriptor, status)
-        }
     }
 
     /**
