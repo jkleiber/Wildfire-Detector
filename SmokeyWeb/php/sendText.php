@@ -1,24 +1,25 @@
 <?php
-// Get the PHP helper library from twilio.com/docs/php/install
-require_once '/path/to/vendor/autoload.php';
-// Loads the library
+
+require __DIR__ . '/twilio-php/src/Twilio/autoload.php';
 use Twilio\Rest\Client;
+
 function sendText($lat, $lng)
 {
-	//$gMaps = http://maps.google.com/?q=<$lat>,<$lng>;
+    $gMaps = 'http://maps.google.com/?q=' . $lat . ',' . $lng;
 
 	// Connect to the database
     require("db_connect.php");
+    require("config.php");
 
 	// Get list of phone numbers
 	// TODO: Create a table that has phone numbers and their names to it
-	$query_users = "SELECT phone_number, name FROM users";
+    $query_users = "SELECT * FROM users";
 
-	// Attempt to get the reports
+	// Attempt to get the user information
     try
     {
 		// Turns the query into something I can use
-        $users = $pdo->query($queryusers);
+        $users = $pdo->query($query_users);
     }
     // Couldn't get the users, so print an error
     catch(PDOException $e)
@@ -29,23 +30,27 @@ function sendText($lat, $lng)
         exit();
     }
 
-	$account_sid = 'AC45f9537e089f4eb98e0c16e68f17320a';
-	$auth_token = '4cd3545dc2e9894d16da7d617b2aa8e5';
+    // Get Twilio information from config file
+	$account_sid = $cfg['twilio_account_id'];
+    $auth_token = $cfg['twilio_auth_token'];
+    $twilio_number = $cfg['twilio_phone_number'];
 
-	// A Twilio number you own with SMS capabilities
-	$twilio_number = "+14053670830";
-	$client = new Client($account_sid, $auth_token);
+	// Create a twilio client
+    $client = new Client($account_sid, $auth_token);
 
+    // Send a message to all the subscribed users
 	while($user = $users->fetch())
 	{
-		$name = $users['name'];
+        // Get user name and phone number to form the SMS message
+        $name = $user['name'];
+        $message_body = "Be careful " . $name . "! there was a fire detected in your area. " . $gMaps;
+
 		$client->messages->create(
-			// Where to send a text message
 			$user['phone_number'],
 			array(
 				'from' => $twilio_number,
-				'body' => "Be careful {$name}! there was a fire detected in your area. {$gMaps}"
+				'body' => $message_body
 			)
-		);
+        );
 	}
 }

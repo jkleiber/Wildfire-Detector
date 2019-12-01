@@ -1,25 +1,21 @@
 
 <?php
-    //$post_data = json_decode(file_get_contents('php://input'), true);
+    $post_data = json_decode(file_get_contents('php://input'), true);
 
     // Ensure all required fields are filled out
-    //if(isset($post_data['latitude'])
-    //&& isset($post_data['longitude']))
-    //{
+    if(isset($post_data['latitude'])
+    && isset($post_data['longitude']))
+    {
         // Connect to the database
         require_once("db_connect.php");
 
         // Get helper functions for fire associations
         require_once("report_helper.php");
-        require_once("sendText.php");
-
-        echo "here";
+        require("sendText.php");
 
         // Get report information
-        //$lat = $post_data['latitude'];
-        //$lon = $post_data['longitude'];
-        $lat = 35;
-        $lon = -96;
+        $lat = $post_data['latitude'];
+        $lon = $post_data['longitude'];
 
         // Form a point from the latitude and longitude
         $point = "POINT(". $pdo->quote($lat) . ", " . $pdo->quote($lon) .")";
@@ -47,7 +43,7 @@
             }
 
             // Get the ID of the fire we just created
-            $active_fire_query = "SELECT id FROM active_fires WHERE initial_pos =" . $point;
+            $active_fire_query = "SELECT id FROM active_fires WHERE initial_pos =" . $point . " LIMIT 1";
             try {
                 $fire_id_row = $pdo->query($active_fire_query);
 
@@ -104,16 +100,13 @@
         }
 
 		// send texts
-		sendText($lat, $lon);
+        sendText($lat, $lon);
 
         // Respond to request with success
         echo json_encode(array('message' => 'SUCCESS: Fire added to database successfully'));
         exit();
-   // }
-
-    // Debugging output
-    //require_once("debug.php");
+    }
 
     // Respond to request with error due to invalid post
-    //echo json_encode(array('message' => 'ERROR: Incorrect POST format'));
+    echo json_encode(array('message' => 'ERROR: Incorrect POST format'));
 ?>
