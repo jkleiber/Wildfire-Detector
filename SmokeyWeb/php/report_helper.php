@@ -16,7 +16,7 @@ function getDistance($lat1, $lon1, $lat2, $lon2)
     $lon2 = toRadians($lon2);
 
     // Calculate 'a' param in haversine formula
-    $a = pow(sin(($lat2 - $lat1) / 2.0),2) * cos($lat1) * cos($lat2) * pow(sin(($lon2 - $lon1)/2), 2);
+    $a = pow(sin(($lat2 - $lat1) / 2.0),2) + cos($lat1) * cos($lat2) * pow(sin(($lon2 - $lon1)/2), 2);
 
     // Use 'a' to calculate 'c'
     $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
@@ -67,7 +67,7 @@ function getNearestActiveFire($lat, $lon)
     while($report = $reports->fetch())
     {
         // Get the distance to the selected report
-        $dist = getDistance($lat, $lon, $report["latitude"], $report["longitude"]) / 1000.0;
+        $dist = getDistance($lat, $lon, $report["latitude"], $report["longitude"]);
 
         // If this fire is close enough to the report, consider it part of the same active fire
         // TODO: handle case where two fires combine together to become one big fire
