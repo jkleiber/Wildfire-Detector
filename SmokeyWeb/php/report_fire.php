@@ -11,6 +11,7 @@
 
         // Get helper functions for fire associations
         require_once("report_helper.php");
+        require("sendText.php");
 
         // Get report information
         $lat = $post_data['latitude'];
@@ -42,7 +43,7 @@
             }
 
             // Get the ID of the fire we just created
-            $active_fire_query = "SELECT id FROM active_fires WHERE initial_pos =" . $point;
+            $active_fire_query = "SELECT id FROM active_fires WHERE initial_pos =" . $point . " LIMIT 1";
             try {
                 $fire_id_row = $pdo->query($active_fire_query);
 
@@ -83,6 +84,7 @@
         {
             // Execute the database query for inserting the data
             $pdo->exec($query);
+
         }
         // Inserting data failed, so print an error
         catch(PDOException $e)
@@ -97,13 +99,13 @@
             exit();
         }
 
+		// send texts
+        sendText($lat, $lon);
+
         // Respond to request with success
         echo json_encode(array('message' => 'SUCCESS: Fire added to database successfully'));
         exit();
     }
-
-    // Debugging output
-    require_once("debug.php");
 
     // Respond to request with error due to invalid post
     echo json_encode(array('message' => 'ERROR: Incorrect POST format'));

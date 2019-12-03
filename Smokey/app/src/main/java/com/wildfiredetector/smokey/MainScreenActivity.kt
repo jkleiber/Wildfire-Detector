@@ -9,12 +9,17 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
+import android.util.Log.d
 import com.google.android.material.tabs.TabLayout
 import androidx.appcompat.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
 import androidx.core.content.ContextCompat
+import androidx.core.view.get
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentTransaction
 import androidx.lifecycle.ViewModelProviders
+import com.wildfiredetector.smokey.ui.main.FireMapFragment
 import com.wildfiredetector.smokey.ui.main.PageViewModel
 import com.wildfiredetector.smokey.ui.main.SectionsPagerAdapter
 import kotlinx.android.synthetic.main.activity_main_screen.*
@@ -26,19 +31,27 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
     private val REQUEST_COARSE_LOC = 12
     private val REQUEST_FINE_LOC = 13
 
+    lateinit var viewPager: HackedViewPager
+
     private lateinit var pageViewModel: PageViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContentView(R.layout.activity_main_screen)
         setSupportActionBar(toolbar)
 
         val sectionsPagerAdapter = SectionsPagerAdapter(this, supportFragmentManager)
-        val viewPager: HackedViewPager = findViewById(R.id.view_pager)
+        viewPager = findViewById(R.id.view_pager)
         viewPager.adapter = sectionsPagerAdapter
 
         val tabs: TabLayout = findViewById(R.id.tabs)
         tabs.setupWithViewPager(viewPager)
+
+        // when receiving notification go to firemap
+        goToFireTab(intent)
+
+
 
         // Enable GPS detection
         val approved = getPermissions()
@@ -126,5 +139,16 @@ class MainScreenActivity : AppCompatActivity(), LocationListener {
         }
 
         return result
+    }
+
+
+    private fun goToFireTab(intent: Intent)
+    {
+        val extras = intent.extras
+        if(extras != null)
+            if(extras.containsKey("Tab"))
+            {
+                viewPager.setCurrentItem((extras.getInt("Tab")))
+            }
     }
 }
