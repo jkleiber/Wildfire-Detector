@@ -5,7 +5,7 @@
 #include "Adafruit_BluefruitLE_UART.h"
 
 #include "BluefruitConfig.h"
-    -----------------------------------------------------------------------*/
+/*    -----------------------------------------------------------------------*/
 #define FACTORYRESET_ENABLE         1
 #define MINIMUM_FIRMWARE_VERSION    "0.6.6"
 #define MODE_LED_BEHAVIOUR          "MODE"
@@ -67,7 +67,7 @@ void setup(void)
 
 void loop(void)
 {
-  if(analogRead(FIRE_ANALOG_RIGHT) > 850 || analogRead(FIRE_ANALOG_LEFT) > 850)
+  if(analogRead(FIRE_ANALOG_RIGHT) > 900 || analogRead(FIRE_ANALOG_LEFT) > 900)
   {
     detected();
   }
