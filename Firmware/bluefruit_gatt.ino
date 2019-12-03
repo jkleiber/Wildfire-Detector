@@ -5,43 +5,14 @@
 #include "Adafruit_BluefruitLE_UART.h"
 
 #include "BluefruitConfig.h"
-
-/*=========================================================================
-    APPLICATION SETTINGS
-
-      FACTORYRESET_ENABLE     Perform a factory reset when running this sketch
-     
-                              Enabling this will put your Bluefruit LE module
-                              in a 'known good' state and clear any config
-                              data set in previous sketches or projects, so
-                              running this at least once is a good idea.
-     
-                              When deploying your project, however, you will
-                              want to disable factory reset by setting this
-                              value to 0.  If you are making changes to your
-                              Bluefruit LE device via AT commands, and those
-                              changes aren't persisting across resets, this
-                              is the reason why.  Factory reset will erase
-                              the non-volatile memory where config data is
-                              stored, setting it back to factory default
-                              values.
-         
-                              Some sketches that require you to bond to a
-                              central device (HID mouse, keyboard, etc.)
-                              won't work at all with this feature enabled
-                              since the factory reset will clear all of the
-                              bonding data stored on the chip, meaning the
-                              central device won't be able to reconnect.
-    MINIMUM_FIRMWARE_VERSION  Minimum firmware version to have some new features
-    MODE_LED_BEHAVIOUR        LED activity, valid options are
-                              "DISABLE" or "MODE" or "BLEUART" or
-                              "HWUART"  or "SPI"  or "MANUAL"
     -----------------------------------------------------------------------*/
 #define FACTORYRESET_ENABLE         1
 #define MINIMUM_FIRMWARE_VERSION    "0.6.6"
 #define MODE_LED_BEHAVIOUR          "MODE"
-#define FIRE_ANALOG                 A0
-#define FIRE_DIGITAL                2
+#define FIRE_ANALOG_RIGHT           A1
+#define FIRE_DIGITAL_RIGHT          3
+#define FIRE_ANALOG_LEFT            A0
+#define FIRE_DIGITAL_LEFT           2
 #define TEST_LED                    13
 /*=========================================================================*/
 
@@ -67,6 +38,7 @@ void detected()
 /**************************************************************************/
 void setup(void)
 {
+  Serial.begin(9600);
   ble.begin(VERBOSE_MODE);
   if ( FACTORYRESET_ENABLE )
   {
@@ -84,23 +56,18 @@ void setup(void)
   // Set up digital interrupt
   fire = false;
   pinMode(TEST_LED, OUTPUT);
-  pinMode(FIRE_ANALOG, INPUT);
-  pinMode(FIRE_DIGITAL, INPUT);
-  attachInterrupt(digitalPinToInterrupt(FIRE_DIGITAL), detected, RISING);
+  pinMode(FIRE_ANALOG_LEFT, INPUT);
+  pinMode(FIRE_DIGITAL_LEFT, INPUT);
+  pinMode(FIRE_ANALOG_RIGHT, INPUT);
+  pinMode(FIRE_DIGITAL_RIGHT, INPUT);
+  attachInterrupt(digitalPinToInterrupt(FIRE_DIGITAL_RIGHT), detected, RISING);
+  attachInterrupt(digitalPinToInterrupt(FIRE_DIGITAL_LEFT), detected, RISING);
+
 }
 
 void loop(void)
 {
-  // Testing
-  delay(1000);
-  ble.println("AT+GATTCHAR=1,1");
-  ble.waitForOK();
-  delay(1000);
-  ble.println("AT+GATTCHAR=1,0");
-  ble.waitForOK();
-
-  /* Actual logic here
-  if(analogRead(FIRE_ANALOG) > 850)
+  if(analogRead(FIRE_ANALOG_RIGHT) > 850 || analogRead(FIRE_ANALOG_LEFT) > 850)
   {
     detected();
   }
@@ -115,5 +82,4 @@ void loop(void)
     fire = false;
   }
   delay(10);
-  */
 }
